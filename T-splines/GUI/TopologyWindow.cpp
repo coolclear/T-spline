@@ -81,10 +81,10 @@ void TopologyWindow::prepRenderer()
 
 void TopologyWindow::loadMesh()
 {
-	char* filePath = fl_file_chooser("Open T-Mesh", ".txt (*.txt)", "./files", 0);
+	char* filePath = fl_file_chooser("Open T-Mesh", ".txt (*.txt)", "./files/", 0);
 	if(!filePath)
 	{
-		printf("Canceled loading T-mesh\n");
+		fprintf(stderr, "Canceled loading T-mesh\n");
 		return;
 	}
 
@@ -92,6 +92,10 @@ void TopologyWindow::loadMesh()
 		_mesh = new TMesh(1, 1, 1, 1);
 	if(_mesh->meshFromFile(filePath))
 	{
+		printf("Loaded [%s] successfully\n", filePath);
+		printf("Dimensions: %d x %d\n", _mesh->rows, _mesh->cols);
+		printf("Degree: %d x %d\n", _mesh->rowDeg, _mesh->colDeg);
+
 		prepGeometry();
 		prepRenderer();
 	}
@@ -99,5 +103,18 @@ void TopologyWindow::loadMesh()
 
 void TopologyWindow::saveMesh()
 {
-	printf("not yet implemented\n");
+	if(!_mesh)
+	{
+		fprintf(stderr, "T-mesh not yet initialized\n");
+		return;
+	}
+
+	char* filePath = fl_file_chooser("Save T-Mesh", ".txt (*.txt)", "./files/", 0);
+	if(!filePath)
+	{
+		fprintf(stderr, "Canceled saving T-mesh\n");
+		return;
+	}
+	if(_mesh->meshToFile(filePath))
+		printf("Saved [%s] successfully\n", filePath);
 }

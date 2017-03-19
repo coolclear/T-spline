@@ -189,6 +189,7 @@ public:
 
 	void assign(TMesh &tmesh);
 	bool meshFromFile(const string &path);
+	bool meshToFile(const string &path);
 };
 
 class TMeshScene : public SceneInfo
@@ -199,43 +200,9 @@ protected:
 public:
 	TMeshScene() {}
 
-	void setup(TMesh *tmesh)
-	{
-		tmesh->lock.lock();
-		gridSpheres = tmesh->gridPoints;
-		for(int r = 0; r <= tmesh->rows; ++r)
-		{
-			for(int c = 0; c <= tmesh->cols; ++c)
-			{
-				bool doDraw = false;
-
-				if(r == 0 || r == tmesh->rows || c == 0 || c == tmesh->cols)
-					doDraw = true; // always draw boundary points (for now)
-				else
-				{
-					bool bu = tmesh->gridV[r-1][c];
-					bool bd = tmesh->gridV[r][c];
-					bool bl = tmesh->gridH[r][c-1];
-					bool br = tmesh->gridH[r][c];
-					if((bu && bd && bl && br) || (bu != bd) || (bl != br))
-						doDraw = true; // draw the point if it has an edge but is not an I-junction
-				}
-
-				if(!doDraw) gridSpheres[r][c] = NULL; // don't draw this sphere (gridpoint)
-			}
-		}
-		tmesh->lock.unlock();
-	}
+	void setup(TMesh *tmesh);
 	const vector<vector<Sphere*>> &getSpheres() { return gridSpheres; }
 };
-
-
-class TMeshUtils {
-public:
-	static TMeshScene* readScene(const string& fname);
-	static bool writeScene(const string& fname, TMeshScene* TMeshScene);
-};
-
 
 
 

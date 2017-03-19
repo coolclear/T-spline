@@ -74,9 +74,6 @@ static TriMesh* readMesh(const VVP3 &S) {
 	ret->setFNormals(RenderingUtils::perFaceNormals(pts,inds));
 	ret->setVNormals(RenderingUtils::perVertexNormals(pts,inds));
 
-	cout << "#Vertices  : " << nverts << endl;
-	cout << "#Triangles : " << ntris << endl;
-
 	return ret;
 }
 

@@ -82,142 +82,54 @@ Vec3Array* RenderingUtils::perFaceNormals(Pt3Array* pts, TriIndArray* tris) {
 }
 
 
-Vec3 readVec3(istream* stream) {
+inline Vec3 readVec3(istream* stream) {
 	Vec3 ret(0, 0, 0, 0);
 	(*stream)>>ret[0]>>ret[1]>>ret[2];
 	return ret;
 }
 
-Pt3 readPt3(istream* stream) {
+inline Pt3 readPt3(istream* stream) {
 	Pt3 ret(0, 0, 0);
 	(*stream)>>ret[0]>>ret[1]>>ret[2];
 	return ret;
 }
 
-double readDouble(istream* stream) {
+inline double readDouble(istream* stream) {
 	double ret;
 	(*stream)>>ret;
 	return ret;
 }
 
-int readInt(istream* stream) {
+inline int readInt(istream* stream) {
 	int ret;
 	(*stream)>>ret;
 	return ret;
 }
 
-string readString(istream* stream) {
+inline string readString(istream* stream) {
 	string ret;
 	(*stream)>>ret;
 	return ret;
 }
 
-void writeVec3(ostream* stream, const Vec3& v) {
-	(*stream) << v[0] << " " << v[1] << " " << v[2];
+inline void writeVec3(ostream* stream, const Vec3& v) {
+	(*stream) << v[0] << '\t' << v[1] << '\t' << v[2];
 }
 
-void writePt3(ostream* stream, const Pt3& v) {
-	(*stream) << v[0] << " " << v[1] << " " << v[2];
+inline void writePt3(ostream* stream, const Pt3& v) {
+	(*stream) << v[0] << '\t' << v[1] << '\t' << v[2];
 }
 
-void writeDouble(ostream* stream, double d) {
+inline void writeDouble(ostream* stream, double d) {
 	(*stream) << d;
 }
 
-void writeInt(ostream* stream, int d) {
+inline void writeInt(ostream* stream, int d) {
 	(*stream) << d;
 }
 
-void writeString(ostream* stream, const string& s) {
+inline void writeString(ostream* stream, const string& s) {
 	(*stream) << s;
-}
-
-
-bool TMeshUtils::writeScene(const std::string& fname, TMeshScene* TMeshScene) {
-	std::ofstream fout(fname.c_str());
-
-	if(!fout.good())
-	{
-		fprintf(stderr, "Cannot write the TMeshScene to a file\n");
-		return false;
-	}
-
-	fout << setprecision(12); // up to 12 decimal places
-
-	if(TMeshScene) {
-		/*
-		WriteSceneObjectVisitor writer;
-		writer.setStream(&fout);
-
-		writeInt(&fout, TMeshScene->getNumObjects());
-		fout << endl << endl;
-		for(int j = 0; j < TMeshScene->getNumObjects(); j++) {
-		Geometry* geom = TMeshScene->getObject(j);
-		geom->accept(&writer, NULL);
-		fout << endl;
-		}*/
-	}
-	fout << endl;
-
-	Mat4* rot = TMeshScene->getRotate();
-	Mat4* trans = TMeshScene->getTranslate();
-
-	for(int j = 0; j < 4; j++)
-		for(int k = 0; k < 4; k++)
-			fout << (*rot)[j][k] << " ";
-
-	for(int i = 0; i < 3; i++) fout << (*trans)[3][i] << ' ';
-	fout << endl;
-
-	return true;
-}
-
-// no error handling at all.  pretty unsafe.  please make sure your file is well-formed.
-TMeshScene* TMeshUtils::readScene(const std::string& fname) {
-	TMeshScene* ret = NULL;
-
-	std::fstream fin(fname.c_str());
-	std::stringstream ss;
-	std::string line;
-
-	if(fin.good()) {
-		ret = new TMeshScene();
-
-		while(!fin.eof()) {
-			getline(fin, line);
-			size_t pos = line.find("//");
-			if(pos == string::npos)
-				ss << line;
-			else
-				ss << line.substr(0, pos);
-			ss << endl;
-		}
-
-		/*
-		ReadSceneObjectVisitor reader;
-		reader.setStream(&ss);
-
-		int numObjs = readInt(&ss);
-		for(int j = 0; j < numObjs; j++) {
-		string type = readString(&ss);
-		Geometry* geom = new Sphere();
-		geom->accept(&reader, NULL);
-		ret->addObject(geom);
-		}
-		*/
-
-		Mat4* rot = ret->getRotate();
-		Mat4* trans = ret->getTranslate();
-
-		for(int j = 0; j < 4; j++)
-			for(int k = 0; k < 4; k++)
-				(*rot)[j][k] = readDouble(&ss);
-
-		for(int j = 0; j < 3; j++)
-			(*trans)[3][j] = readDouble(&ss);
-	}
-
-	return ret;
 }
 
 
@@ -312,6 +224,11 @@ TMesh::~TMesh()
 	lock.unlock();
 }
 
+
+/*
+ * Replaces the current content with a given T-mesh T using C++ move,
+ * and also destroys the content in T (T becomes unusable after this function).
+ */
 void TMesh::assign(TMesh &T)
 {
 	this->lock.lock();
@@ -332,13 +249,17 @@ void TMesh::assign(TMesh &T)
 	this->lock.unlock();
 }
 
+/*
+* Loads T-mesh information from the file specified by a given path.
+* Returns 1 on success, 0 on failure.
+*/
 bool TMesh::meshFromFile(const string &path)
 {
-	// Try to open the file an
+	// Try to open the file
 	ifstream fs(path);
 	if(!fs.is_open()) // File is not found or cannot be opened
 	{
-		fprintf(stderr, "Failed to open a T-mesh file\n");
+		fprintf(stderr, "Failed to open a T-mesh file for reading\n");
 		return false;
 	}
 
@@ -368,7 +289,7 @@ bool TMesh::meshFromFile(const string &path)
 
 	TMesh T(rows1, cols1, rowDeg1, colDeg1, false);
 
-	// Read grid informati1on
+	// Read grid information
 	{
 		// - Horizontal: (R+1) x C bools
 		for(int r = 0; r <= rows1; ++r)
@@ -465,4 +386,126 @@ bool TMesh::meshFromFile(const string &path)
 	// The file is read successfully, so we can replace the mesh now
 	assign(T);
 	return true;
+}
+
+
+/*
+* Saves T-mesh information to the file specified by a given path.
+* Returns 1 on success, 0 on failure.
+*/
+bool TMesh::meshToFile(const string &path)
+{
+	// Try to open the file
+	ofstream fs(path);
+	if(!fs.is_open()) // File is not found or cannot be opened
+	{
+		fprintf(stderr, "Failed to open a T-mesh file for writing\n");
+		return false;
+	}
+
+	// Lock to prevent changes while saving the T-mesh
+	this->lock.lock();
+
+	// Save dimensions and degrees
+	{
+		fs << this->rows << ' ' << this->cols << '\n';
+		fs << this->rowDeg << ' ' << this->colDeg;
+	}
+
+// Returns ' ' if x > 0 and '\n' otherwise
+#define separator(x) ("\n "[(x) > 0])
+
+	// Save grid information
+	{
+		// - Horizontal: (R+1) x C bools
+		if(this->cols > 0)
+		{
+			fs << '\n';
+			for(int r = 0; r <= this->rows; ++r)
+				for(int c = 0; c < this->cols; ++c)
+					fs << separator(c) << (int)this->gridH[r][c];
+		}
+		// - Vertical: R x (C+1) bools
+		if(this->rows > 0)
+		{
+			fs << '\n';
+			for(int r = 0; r < this->rows; ++r)
+				for(int c = 0; c <= this->cols; ++c)
+					fs << separator(c) << (int)this->gridV[r][c];
+		}
+	}
+
+	fs << setprecision(12);
+
+	// Save knot values
+	{
+		fs << '\n';
+
+		// - Horizontal: C + C_deg doubles
+		if(this->cols > 0)
+		{
+			for(int i = 0; i < this->cols + this->colDeg; ++i)
+				fs << separator(i) << this->knotsH[i];
+		}
+		// - Vertical: R + R_deg doubles
+		if(this->rows > 0)
+		{
+			for(int i = 0; i < this->rows + this->rowDeg; ++i)
+				fs << separator(i) << this->knotsV[i];
+		}
+	}
+
+	// Save control point coordinates: (R+1) x (C+1) x 3 doubles
+	{
+		for(int r = 0; r <= this->rows; ++r)
+		{
+			fs << '\n';
+			for(int c = 0; c <= this->cols; ++c)
+			{
+				fs << '\n';
+				writePt3(&fs, this->gridPoints[r][c]->getCenter());
+			}
+		}
+	}
+
+	// Finish saving the T-mesh
+	this->lock.unlock();
+
+	// Signal the ending in the file
+	fs << "\n\nEND" << endl;
+
+	// The file is written successfully if it's still in good state.
+	return fs.good();
+
+#undef separator
+}
+
+
+
+void TMeshScene::setup(TMesh *tmesh)
+{
+	tmesh->lock.lock();
+	gridSpheres = tmesh->gridPoints;
+	for(int r = 0; r <= tmesh->rows; ++r)
+	{
+		for(int c = 0; c <= tmesh->cols; ++c)
+		{
+			bool doDraw = false;
+
+			if(r == 0 || r == tmesh->rows || c == 0 || c == tmesh->cols)
+				doDraw = true; // always draw boundary points (for now)
+			else
+			{
+				bool bu = tmesh->gridV[r-1][c];
+				bool bd = tmesh->gridV[r][c];
+				bool bl = tmesh->gridH[r][c-1];
+				bool br = tmesh->gridH[r][c];
+				if((bu && bd && bl && br) || (bu != bd) || (bl != br))
+					doDraw = true; // draw the point if it has an edge but is not an I-junction
+			}
+
+			if(!doDraw) gridSpheres[r][c] = NULL; // don't draw this sphere (gridpoint)
+		}
+	}
+	tmesh->lock.unlock();
 }
