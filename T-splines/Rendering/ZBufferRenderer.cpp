@@ -28,27 +28,30 @@ void ZBufferRenderer::draw()
 
 	if(_drawGrid)
 	{
-		const double low = -3;
-		const double high = 3;
-		const int steps = 20;
+		// Specify coordinate extremes for the axis lines and grids
+		const double low = -10;
+		const double high = 10;
 
-/*
-		// YZ-plane grid (red)
-		glColor3d(0.4, 0.1, 0.1);
-		glRotatef(90, 0, 1, 0);
-		drawGrid(low, high, steps);
-		glRotatef(-90, 0, 1, 0);
-//*/
+		if(0) // Draw coordinate grid lines (now inactive)
+		{
+			const int steps = 20;
 
-		// XZ-plane grid (green)
-		glColor3d(0.1, 0.3, 0.1);
-		drawGrid(low, high, steps);
-		glRotatef(-90, 1, 0, 0);
+			// YZ-plane grid (red)
+			glColor3d(0.4, 0.1, 0.1);
+			glRotatef(90, 0, 1, 0);
+			drawGrid(low, high, steps);
+			glRotatef(-90, 0, 1, 0);
 
-		// XY-plane grid (blue)
-		glColor3d(0.1, 0.1, 0.4);
-		drawGrid(low, high, steps);
-		glRotatef(90, 1, 0, 0);
+			// XZ-plane grid (green)
+			glColor3d(0.1, 0.3, 0.1);
+			drawGrid(low, high, steps);
+			glRotatef(-90, 1, 0, 0);
+
+			// XY-plane grid (blue)
+			glColor3d(0.1, 0.1, 0.4);
+			drawGrid(low, high, steps);
+			glRotatef(90, 1, 0, 0);
+		}
 
 		// Draw thick colorful axes
 		glLineWidth(3);
@@ -79,7 +82,7 @@ void ZBufferRenderer::draw()
 		}
 	}
 
-	if(1) // Draw links between adjacent control points
+	if(1) // Draw links between adjacent control points (now active)
 	{
 		glLineWidth(3);
 		glBegin(GL_LINES);
@@ -89,7 +92,7 @@ void ZBufferRenderer::draw()
 		int cols = spheres[0].size();
 
 		// Draw H-links
-		glColor3d(0, 0.4, 0.8);
+		glColor3d(0, 0.4, 0.8); // greenish blue
 		for(int r = 0; r < rows; ++r)
 		{
 			Sphere *last = NULL, *curr;
@@ -107,7 +110,7 @@ void ZBufferRenderer::draw()
 		}
 
 		// Draw V-links
-		glColor3d(0.8, 0.4, 0);
+		glColor3d(0.8, 0.4, 0); // orange
 		for(int c = 0; c < cols; ++c)
 		{
 			Sphere *last = NULL, *curr;
