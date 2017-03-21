@@ -63,7 +63,7 @@ Matrix<double, 4> _modelview;
 Matrix<double, 4> _translate;
 Matrix<double, 4> _rotate;
 
-void RenderingWindow::createCurveScene(const vector<Pt3>& P)
+void RenderingWindow::createCurveScene(const vector<pair<Pt3, int>>& P)
 {
 	sceneLock.lock();
 	if(_scene)
@@ -163,45 +163,68 @@ void RenderingWindow::init() {
 }
 
 
+// Describes each node in the pyramid in the de Boor Algorithm
+struct PyramidNode
+{
+	// Denote parameters t_l or t_r along the up-left (t-t_l) or up-right (t_r-t) arrow
+	double knotL, knotR;
+	// Coordinates of the point
+	Pt3 point;
+};
 
-static Pt3 localDeBoor(double n, double deg, double t, const double *knotsAtP, VP3 points)
+static Pt3 localDeBoor(int deg, double t, vector<PyramidNode> layer)
 {
 	// Run the local de Boor Algorithm on this segment
 	for(int i = deg; i >= 1; --i)
 	{
-		VP3 temp(i);
+		// At this moment, we have i+1 points in the vector 'points'.
 
+		// Compute the new points
+		vector<PyramidNode> newLayer(i);
 		for(int j = 0; j < i; ++j)
 		{
-			double ta = knotsAtP[j - i + 1];
-			double tb = knotsAtP[j + 1];
-			temp[j] = points[j] * ((tb-t) / (tb-ta)) + points[j+1] * ((t-ta) / (tb-ta));
+			double ta = layer[j + 1].knotL;
+			double tb = layer[j].knotR;
+			newLayer[j].knotL = ta;
+			newLayer[j].knotR = tb;
+			newLayer[j].point =
+				layer[j].point * ((tb-t) / (tb-ta)) +
+				layer[j+1].point * ((t-ta) / (tb-ta));
 		}
-		points = move(temp);
+		// Replace the current layer (i+1 points) with the new layer (i points)
+		layer = move(newLayer);
 	}
 
-	// Keep the result
-	return points[0];
+	return move(layer[0].point); // the top of the de Boor pyramid
 }
 
-static inline void updateSegmentIndex(int &p, int n, double t, const vector<double> &knots)
+// Update the index 'p' to cover the appropriate knot values given a particular parameter t
+static void updateSegmentIndex(int &p, int n, double t, const vector<double> &knots)
 {
-	while(p + 1 < n && (t > knots[p + 1] || abs(knots[p] - knots[p + 1]) < 1e-9))
+	while(p + 1 < n && (t > knots[p + 1] + 1e-9 || abs(knots[p] - knots[p + 1]) < 1e-9))
 		++p;
+}
+
+// Retrieve parameters t_l or t_r along the up-left (t-t_l) or up-right (t_r-t) arrow
+static void populateKnotLR(PyramidNode &node, int p, int deg, const vector<double> &knots)
+{
+	int idL = p - deg;
+	int idR = p + 1;
+	node.knotL = (idL < 0) ? 0 : knots[idL];
+	node.knotR = (idR >= (int) knots.size()) ? 0 : knots[idR];
 }
 
 void RenderingWindow::createScene(const TMesh *T)
 {
 	if(T->rows * T->cols == 0)
 	{
-		VP3 P;
-		// TODO: compute points for curve rendering
+		vector<pair<Pt3, int>> P;
 
 		if(T->rows == 0) // 1 x (C+1) grid
 		{
 			if(1) // Interpolate points
 			{
-				const int N = 1000;
+				const int N = 1000; // fixed for now
 				P.resize(N + 1);
 				double t0 = T->knotsH[T->colDeg - 1];
 				double t1 = T->knotsH[T->cols];
@@ -211,107 +234,98 @@ void RenderingWindow::createScene(const TMesh *T)
 				for(int i = 0; i <= N; ++i)
 				{
 					double t = t0 + dt * i;
+
 					// Find the correct segment for this parameter t
-					while(p + 1 < T->cols && (t > T->knotsH[p + 1] ||
-						abs(T->knotsH[p] - T->knotsH[p + 1]) < 1e-9))
-						++p;
+					updateSegmentIndex(p, T->cols, t, T->knotsH);
 
 					// Collect the initial control points for this segment
-					VP3 points(T->colDeg + 1);
+					vector<PyramidNode> baseLayer(T->colDeg + 1);
 					for(int j = 0; j <= T->colDeg; ++j)
 					{
 						int r1 = 0;
 						int c1 = j + p - T->colDeg + 1;
-						points[j] = T->gridPoints[r1][c1]->getCenter();
-						//							cout << "Point " << j << " : " << curr[j] << endl;
+						baseLayer[j].point = T->gridPoints[r1][c1]->getCenter();
+						populateKnotLR(baseLayer[j], j + p, T->colDeg, T->knotsH);
 					}
 
-					// Run the local de Boor Algorithm on this segment
-					P[i] = localDeBoor(T->cols, T->colDeg, t, &T->knotsH[p], move(points));
-					//						cout << i << " : " << P[i] << endl;
+					/*
+					 * Evaluate at t - run the local de Boor Algorithm on this segment
+					 * Also store the index p for segment verification (for visualization)
+					 */
+					P[i] = {localDeBoor(T->colDeg, t, move(baseLayer)), p};
 				}
 			}
 			if(0) // Use the control points directly
 			{
 				P.resize(T->cols + 1);
 				for(int i = 0; i <= T->cols; ++i)
-					P[i] = T->gridPoints[0][i]->getCenter();
+					P[i] = {T->gridPoints[0][i]->getCenter(), 0};
 			}
 		}
 		else // (R+1) x 1 grid
 		{
+			// TODO: make this the same as 1 x (C+1) grid (though, it's redundant)
 			P.resize(T->rows + 1);
 			for(int i = 0; i <= T->rows; ++i)
-				P[i] = T->gridPoints[i][0]->getCenter();
+				P[i] = {T->gridPoints[i][0]->getCenter(), 0};
 		}
 		createCurveScene(P);
 	}
 	else
 	{
 		VVP3 S;
-		if(1) // Interpolate points on the B-spline surface
+		// Interpolate points on the B-spline surface
+		const int RN = 100;
+		const int CN = 100;
+		S.resize(RN + 1, VP3(CN + 1));
+
+		double s0 = T->knotsV[T->rowDeg - 1];
+		double s1 = T->knotsV[T->rows];
+		double ds = (s1 - s0) / RN;
+
+		double t0 = T->knotsH[T->colDeg - 1];
+		double t1 = T->knotsH[T->cols];
+		double dt = (t1 - t0) / CN;
+
+		int rp = T->rowDeg - 1;
+		for(int ri = 0; ri <= RN; ++ri)
 		{
-			const int RN = 100;
-			const int CN = 100;
-			S.resize(RN + 1, VP3(CN + 1));
+			double s = s0 + ds * ri;
 
-			double s0 = T->knotsV[T->rowDeg - 1];
-			double s1 = T->knotsV[T->rows];
-			double ds = (s1 - s0) / RN;
+			// Find the correct segment for this parameter s
+			updateSegmentIndex(rp, T->rows, s, T->knotsV);
 
-			double t0 = T->knotsH[T->colDeg - 1];
-			double t1 = T->knotsH[T->cols];
-			double dt = (t1 - t0) / CN;
-
-			int rp = T->rowDeg - 1;
-			for(int ri = 0; ri <= RN; ++ri)
+			int cp = T->colDeg - 1;
+			for(int ci = 0; ci <= CN; ++ci)
 			{
-				double s = s0 + ds * ri;
+				double t = t0 + dt * ci;
 
-				// Find the correct segment for this parameter s
-				updateSegmentIndex(rp, T->rows, s, T->knotsV);
+				// Find the correct segment for this parameter t
+				updateSegmentIndex(cp, T->cols, t, T->knotsH);
 
-				int cp = T->colDeg - 1;
-				for(int ci = 0; ci <= CN; ++ci)
+				// ** Process vertical (s) then horizontal (t) directions
+
+				// Collect the initial control points for this horizontal segment
+				vector<PyramidNode> pointsH(T->colDeg + 1);
+				for(int c = 0; c <= T->colDeg; ++c)
 				{
-					double t = t0 + dt * ci;
-
-					// Find the correct segment for this parameter t
-					updateSegmentIndex(cp, T->cols, t, T->knotsH);
-
-					// ** Process row (s) then column (t)
-
-					// Collect the initial control points for this segment
-					VP3 rowPoints(T->colDeg + 1);
-					for(int c = 0; c <= T->colDeg; ++c)
+					// Collect the initial control points for each vertical segment
+					vector<PyramidNode> pointsV(T->rowDeg + 1);
+					const int c1 = c + cp - T->colDeg + 1;
+					for(int r = 0; r <= T->rowDeg; ++r)
 					{
-						VP3 colPoints(T->rowDeg + 1);
-						const int c1 = c + cp - T->colDeg + 1;
-						for(int r = 0; r <= T->rowDeg; ++r)
-						{
-							const int r1 = r + rp - T->rowDeg + 1;
-							colPoints[r] =  T->gridPoints[r1][c1]->getCenter();
-						}
-
-						// Run the local de Boor Algorithm on this vertical segment
-						rowPoints[c] = localDeBoor(T->rows, T->rowDeg, s, &T->knotsV[rp], move(colPoints));
+						const int r1 = r + rp - T->rowDeg + 1;
+						pointsV[r].point = T->gridPoints[r1][c1]->getCenter();
+						populateKnotLR(pointsV[r], r + rp, T->rowDeg, T->knotsV);
 					}
 
-					// Run the local de Boor Algorithm on this horizontal segment
-					S[ri][ci] = localDeBoor(T->cols, T->colDeg, t, &T->knotsH[cp], move(rowPoints));
+					// Run the local de Boor Algorithm on this vertical segment
+					pointsH[c].point = localDeBoor(T->rowDeg, s, move(pointsV));
+					populateKnotLR(pointsH[c], c + cp, T->colDeg, T->knotsH);
 				}
-			}
-		}
-		if(0)
-		{
-			S.resize(T->rows + 1);
-			FOR(i,0,T->rows+1)
-			{
-				S[i].reserve(T->cols+1);
-				for(const auto &sphere: T->gridPoints[i])
-				{
-					S[i].PB(sphere->getCenter());
-				}
+
+				// Run the local de Boor Algorithm on this horizontal segment
+				S[ri][ci] = localDeBoor(T->colDeg, t, move(pointsH));
 			}
 		}
 		createTriScene(S);
@@ -321,7 +335,6 @@ void RenderingWindow::createScene(const TMesh *T)
 void RenderingWindow::draw()
 {
 	if(!valid()) init();
-//	printf("rend draw\t");
 
 	sceneLock.lock();
 	if(_scene) {
@@ -626,22 +639,33 @@ void MeshRenderer::draw() {
 		// Draw the interpolated curve
 		if(_scene->willDrawCurve())
 		{
-			vector<Pt3> &P = _scene->getCurve();
+			vector<pair<Pt3, int>> &P = _scene->getCurve();
 			glShadeModel(GL_FLAT);
 			glColor4d(1,1,1,1);
-			glEnable(GL_COLOR_MATERIAL);
+			glDisable(GL_LIGHTING);
+			glDisable(GL_COLOR_MATERIAL);
 
-			glLineWidth(4);
-			glBegin(GL_LINE_STRIP);
-			for(Pt3 p: P)
-				glVertex3dv(&p[0]);
-			glEnd();
+			for(int j = 0; j < 2; ++j)
+			{
+				if(j == 0) // First draw lines
+				{
+					glLineWidth(2);
+					glBegin(GL_LINE_STRIP);
+				}
+				else // Then draw points
+				{
+					glPointSize(2);
+					glBegin(GL_POINTS);
+				}
 
-			glPointSize(4);
-			glBegin(GL_POINTS);
-			for(Pt3 p: P)
-				glVertex3dv(&p[0]);
-			glEnd();
+				for(int i = 0; i < (int) P.size(); ++i)
+				{
+					int a = P[i].second % 3;
+					glColor3d(a == 0, a == 1, a == 2);
+					glVertex3dv(&P[i].first[0]);
+				}
+				glEnd();
+			}
 		}
 		else // Draw the interpolated surface
 		{

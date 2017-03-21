@@ -91,7 +91,7 @@ public:
 	void createScene(const TMesh *T);
 
 protected:
-	void createCurveScene(const vector<Pt3> &P);
+	void createCurveScene(const vector<pair<Pt3, int>> &P);
 	void createTriScene(const VVP3 &S);
 
 	static inline int getWidth() { return _w; }

@@ -286,7 +286,7 @@ protected:
 	Material* _mat;
 	vector<Light*> _lights;
 	TriMesh* _mesh;
-	vector<Pt3> curvePoints;
+	vector<pair<Pt3, int>> curvePoints;
 	bool useCurve;
 
 public:
@@ -307,7 +307,7 @@ public:
 		if(_mat) delete _mat;
 	}
 
-	void setCurve(vector<Pt3> points)
+	void setCurve(vector<pair<Pt3, int>> points)
 	{
 		curvePoints = move(points);
 		useCurve = true;
@@ -321,7 +321,7 @@ public:
 	void addLight(Light* l) { _lights.push_back(l); }
 
 	bool willDrawCurve() const { return useCurve; }
-	vector<Pt3> &getCurve() { return curvePoints; }
+	vector<pair<Pt3, int>> &getCurve() { return curvePoints; }
 	TriMesh* getMesh() { return _mesh; }
 	Material* getMaterial() { return _mat; }
 	int getNumLights() { return (int)_lights.size(); }

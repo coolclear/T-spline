@@ -5,6 +5,6 @@
 #include "Common/Common.h"
 
 TriMeshScene* createTriMeshScene(const VVP3 &S);
-TriMeshScene* createCurveScene(const vector<Pt3> &P);
+TriMeshScene* createCurveScene(const vector<pair<Pt3, int>> &P);
 
 #endif //__SUB_H

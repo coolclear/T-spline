@@ -102,7 +102,7 @@ TriMeshScene* createTriMeshScene(const VVP3 &S)
 	return ret;
 }
 
-TriMeshScene* createCurveScene(const vector<Pt3> &P)
+TriMeshScene* createCurveScene(const vector<pair<Pt3, int>> &P)
 {
 	TriMeshScene* ret = newTriMeshScene();
 	ret->setCurve(P);
