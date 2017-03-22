@@ -8,25 +8,16 @@
 #include <FL/Fl_File_Chooser.H>
 #include <FL/Fl_Button.H>
 
-#include <FL/Fl.H>
 #include <FL/Fl_Gl_Window.H>
+#include <FL/Fl.H>
 #include <FL/gl.h>
 #include <FL/glut.h>
 #include <FL/glu.h>
 
-#include "Rendering/ArcBall.h"
+#include "Rendering/MeshRenderer.h"
 #include "Rendering/ZBufferRenderer.h"
-#include "Rendering/Operator.h"
 
-#include "GUI/RenderingWindow.h"
-
-#include "Common/Matrix.h"
-#include "Common/Common.h"
-
-#include <vector>
-#include <map>
-
-class RenderingWindow;
+#include "TMesh.h"
 
 class GeometryWindow : public Fl_Gl_Window {
 protected:
@@ -55,8 +46,6 @@ protected:
 	static Vec3 _zoomVec;
 	static Vec3 _panVec;
 
-	static TMeshScene* _scene;
-	static ZBufferRenderer* _zbuffer;
 	static std::map<Geometry*, Operator*> _geom2op;
 	static Intersector* _intersector;
 	static Geometry* _selected;
@@ -65,17 +54,27 @@ protected:
 	static bool _holdAlt;
 	static bool _holdShift;
 
-	static TMeshScene *_meshScene;
-	static GeometryWindow* _singleton;
-	mutex sceneLock;
+	static bool _drawGrid;
+	static bool _drawControlPoints;
+	static bool _drawSurface;
+	static GeometryWindow *_singleton;
+
+	static mutex sceneLock;
+
+	static TMeshScene _meshScene;
+	static TriMeshScene _scene;
+
+	static MeshRenderer _renderer;
+	static ZBufferRenderer _zbuffer;
 
 public:
 	GeometryWindow(int x, int y, int w, int h, const char* l);
 	~GeometryWindow();
 
-	static TMeshScene* getScene() { return _scene; }
+	static TMeshScene* getScene() { return &_singleton->_meshScene; }
 
 	void setupControlPoints(TMesh *tmesh);
+	void setupSurface(TMesh *tmesh);
 
 	void draw();
 	int handle(int flag);
@@ -84,8 +83,6 @@ public:
 protected:
 	static inline int getWidth() { return _w; }
 	static inline int getHeight() { return _h; }
-
-	static void display();
 
 	static void updateModelView();
 	static void handleZoom(int x, int y, bool b);
@@ -100,7 +97,7 @@ protected:
 	static void escapeButtonCb(Fl_Widget* widget, void* win) {}
 	static void updateCb(void* userdata) {
 		GeometryWindow* viewer = (GeometryWindow*) userdata;
-		viewer->display();
+		viewer->redraw();
 		Fl::repeat_timeout(REFRESH_RATE, GeometryWindow::updateCb, userdata);
 	}
 

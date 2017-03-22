@@ -3,26 +3,24 @@
 
 ZBufferRenderer::ZBufferRenderer() {
 	_visitor = new ZBufferVisitor();
-
-	_highlighted = NULL;
-	_selected = NULL;
-	_op = NULL;
-	_drawGrid = true;
+	initScene();
 }
 
 void ZBufferRenderer::initScene()
 {
+	_drawGrid = true;
+	_drawControlPoints = true;
 	_highlighted = NULL;
 	_selected = NULL;
 	_op = NULL;
-
-	glEnable(GL_LINE_SMOOTH);
-	glEnable(GL_POINT_SMOOTH);
-	glEnable(GL_POLYGON_SMOOTH);
 }
 
 void ZBufferRenderer::draw()
 {
+	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_POINT_SMOOTH);
+	glEnable(GL_POLYGON_SMOOTH);
+
 	glClearColor(0,0,0,1);
 	glDisable(GL_LIGHTING);
 
@@ -32,7 +30,7 @@ void ZBufferRenderer::draw()
 		const double low = -10;
 		const double high = 10;
 
-		if(0) // Draw coordinate grid lines (now inactive)
+		if(0) // (inactive) Draw coordinate grid lines
 		{
 			const int steps = 20;
 
@@ -69,21 +67,25 @@ void ZBufferRenderer::draw()
 		glEnd();
 	}
 
-	// Draw the control points
-	for(const auto &row: _scene->getSpheres())
+	if(_drawControlPoints)
 	{
-		for(const auto &sphere: row)
+		glLineWidth(0);
+		glPointSize(0);
+
+		// Draw the control points
+		for(const auto &row: _scene->getSpheres())
 		{
-			if(sphere != NULL)
+			for(const auto &sphere: row)
 			{
-				glColor3d(0.8, 0.8, 0.8);
-				sphere->accept(_visitor, NULL);
+				if(sphere != NULL)
+				{
+					glColor3d(0.8, 0.8, 0.8);
+					sphere->accept(_visitor, NULL);
+				}
 			}
 		}
-	}
 
-	if(1) // Draw links between adjacent control points (now active)
-	{
+		// Draw links between adjacent control points
 		glLineWidth(3);
 		glBegin(GL_LINES);
 
@@ -127,41 +129,41 @@ void ZBufferRenderer::draw()
 			}
 		}
 		glEnd();
-	}
 
-	if(_highlighted) {
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-		_highlighted->accept(_visitor, NULL);
+		glLineWidth(0);
+		glPointSize(0);
 
-		glDisable(GL_LIGHTING);
-		glEnable(GL_COLOR_MATERIAL);
-		glPolygonOffset(1, 1);
-		glColor4d(1,0,0,.3);
-		glLineWidth(6.0);
-		glCullFace(GL_FRONT);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		_highlighted->accept(_visitor, NULL);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glPolygonOffset(0, 0);
-		glLineWidth(1.f);
-		glCullFace(GL_BACK);
-		glEnable(GL_LIGHTING);
-	}
+		if(_highlighted)
+		{
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
+			_highlighted->accept(_visitor, NULL);
 
-	if(_op) {
-		glEnable(GL_COLOR_MATERIAL);
-		_op->accept(_visitor, NULL);
-	}
+			glPolygonOffset(1, 1);
+			glColor4d(1, 0, 0, 0.3);
+			glLineWidth(6);
+			glCullFace(GL_FRONT);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			_highlighted->accept(_visitor, NULL);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			glPolygonOffset(0, 0);
+		}
 
-	if(_selected) {
-		glEnable(GL_COLOR_MATERIAL);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		Color diffuse(1,1,1,0.7);
-		glColor4dv(&diffuse[0]);
-		_selected->accept(_visitor, NULL);
-		glDisable(GL_BLEND);
+		if(_op)
+		{
+//			glEnable(GL_COLOR_MATERIAL);
+			_op->accept(_visitor, NULL);
+		}
+
+		if(_selected)
+		{
+//			glEnable(GL_COLOR_MATERIAL);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glColor4d(1, 1, 1, 0.7);
+			_selected->accept(_visitor, NULL);
+			glDisable(GL_BLEND);
+		}
 	}
 }
 

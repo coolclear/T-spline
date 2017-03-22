@@ -1,10 +1,9 @@
 #ifndef GEOMETRY_H
 #define GEOMETRY_H
 
-#include "Common/Matrix.h"
-#include <iostream>
+#include "Common/Common.h"
 
-#define EPS 1e-6
+#define EPS 1e-9
 
 class Ray {
 public:
@@ -48,14 +47,13 @@ public:
 	virtual void accept(GeometryVisitor* visitor, void* ret) = 0;
 };
 
-class GeometryUtils {
-public:
-	static double pointRayClosest(const Pt3& pt, const Ray& ray);
-	static double pointRayDist(const Pt3& pt, const Ray& ray);
-	static double rayRayDist(const Ray& r1, const Ray& r2);
-	static double lineSegRayDist(const Pt3& p0, const Pt3& p1, const Ray& r);
-	static double planeRay(const Plane& pl, const Ray& r);
-	static double planeRayDeg(const Plane& pl, const Vec3& xa, const Ray& r);
+namespace GeometryUtils {
+	double pointRayClosest(const Pt3& pt, const Ray& ray);
+	double pointRayDist(const Pt3& pt, const Ray& ray);
+	double rayRayDist(const Ray& r1, const Ray& r2);
+	double lineSegRayDist(const Pt3& p0, const Pt3& p1, const Ray& r);
+	double planeRay(const Plane& pl, const Ray& r);
+	double planeRayDeg(const Plane& pl, const Vec3& xa, const Ray& r);
 };
 
 #endif

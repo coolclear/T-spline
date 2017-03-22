@@ -7,6 +7,8 @@
 
 #include "Rendering/ShadeAndShapes.h"
 
+#include "TMesh.h"
+
 class ZBufferVisitor;
 
 class ZBufferRenderer
@@ -20,12 +22,16 @@ protected:
 	Operator* _op;
 
 	bool _drawGrid;
+	bool _drawControlPoints;
+
 public:
 	ZBufferRenderer();
 
 	void initScene();
 	virtual void draw();
 	void drawGrid(double low, double high, int steps);
+	void turnOnGrid(bool on) { _drawGrid = on; }
+	void turnOnControlPoints(bool on) { _drawControlPoints = on; }
 
 	void setScene(TMeshScene* s) { _scene = s; }
 	void setSelected(Geometry* geom);

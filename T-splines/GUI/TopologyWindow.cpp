@@ -7,12 +7,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-static void renderButtonCallback(Fl_Widget* widget, void* userdata)
-{
-	TopologyWindow *topology = (TopologyWindow*)userdata;
-	if (topology)
-		topology->prepRenderer();
-}
+TMesh TopologyWindow::_mesh(1, 1, 1, 1);
 
 static void loadButtonCallback(Fl_Widget* widget, void* userdata)
 {
@@ -31,21 +26,17 @@ static void saveButtonCallback(Fl_Widget* widget, void* userdata)
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
 {
-	tv = new TopologyViewer(5,5,300,300,"tv");
-	tv->box(FL_FLAT_BOX);
-	tv->color(FL_BLACK);
-	tv->end();
+	_viewer = new TopologyViewer(5,5,300,300,"_viewer");
+	_viewer->box(FL_FLAT_BOX);
+	_viewer->color(FL_BLACK);
+	_viewer->end();
 
-	_mesh = new TMesh(2, 4, 1, 1);
-	tv->setMesh(_mesh);
+	_viewer->setMesh(&_mesh);
 
-	renderButton = new Button(320, 10, 60, 20, "Render");
-	renderButton->callback(renderButtonCallback, this);
-
-	loadButton = new Button(320, 50, 60, 20, "Load");
+	loadButton = new Button(320, 20, 60, 20, "Load");
 	loadButton->callback(loadButtonCallback, this);
 
-	saveButton = new Button(390, 50, 60, 20, "Save");
+	saveButton = new Button(390, 20, 60, 20, "Save");
 	saveButton->callback(saveButtonCallback, this);
 
 	show();
@@ -57,25 +48,28 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 
 TopologyWindow::~TopologyWindow()
 {
-	delete tv;
-	delete renderButton;
+	delete _viewer;
 	delete loadButton;
 	delete saveButton;
 }
 
-void TopologyWindow::prepGeometry()
+void TopologyWindow::updateControlPoints()
 {
-	if(_mesh && _geometry)
-		_geometry->setupControlPoints(_mesh);
+	if(_geometry)
+	{
+		_mesh.lock.lock();
+		_geometry->setupControlPoints(&_mesh);
+		_mesh.lock.unlock();
+	}
 }
 
-void TopologyWindow::prepRenderer()
+void TopologyWindow::updateSurface()
 {
-	if(_mesh && _renderer)
+	if(_geometry)
 	{
-		_mesh->lock.lock();
-		_renderer->createScene(_mesh);
-		_mesh->lock.unlock();
+		_mesh.lock.lock();
+		_geometry->setupSurface(&_mesh);
+		_mesh.lock.unlock();
 	}
 }
 
@@ -88,33 +82,25 @@ void TopologyWindow::loadMesh()
 		return;
 	}
 
-	if(!_mesh)
-		_mesh = new TMesh(1, 1, 1, 1);
-	if(_mesh->meshFromFile(filePath))
+	if(_mesh.meshFromFile(filePath))
 	{
 		printf("Loaded [%s] successfully\n", filePath);
-		printf("Dimensions: %d x %d\n", _mesh->rows, _mesh->cols);
-		printf("Degree: %d x %d\n", _mesh->rowDeg, _mesh->colDeg);
+		printf("Dimensions: %d x %d\n", _mesh.rows, _mesh.cols);
+		printf("Degree: %d x %d\n", _mesh.rowDeg, _mesh.colDeg);
 
-		prepGeometry();
-		prepRenderer();
+		updateControlPoints();
+		updateSurface();
 	}
 }
 
 void TopologyWindow::saveMesh()
 {
-	if(!_mesh)
-	{
-		fprintf(stderr, "T-mesh not yet initialized\n");
-		return;
-	}
-
 	char* filePath = fl_file_chooser("Save T-Mesh", ".txt (*.txt)", "./files/", 0);
 	if(!filePath)
 	{
 		fprintf(stderr, "Canceled saving T-mesh\n");
 		return;
 	}
-	if(_mesh->meshToFile(filePath))
+	if(_mesh.meshToFile(filePath))
 		printf("Saved [%s] successfully\n", filePath);
 }

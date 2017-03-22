@@ -1,8 +1,7 @@
 #include "Rendering/TopologyViewer.h"
-#include <FL/gl.h>
+
 #include <GL/glu.h>
 
-#include <iostream>
 using namespace std;
 
 TopologyViewer::TopologyViewer(int x, int y, int w, int h, const char* l)
@@ -26,17 +25,24 @@ void TopologyViewer::set2DProjection()
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+
+	glViewport(0, 0, 1, 1);
 }
 
-void TopologyViewer::draw() {
-	if(!valid())
-		init();
-
+void TopologyViewer::draw()
+{
 	if(_mesh == NULL) return;
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	//set2DProjection(); // necessary for 2d drawing
+	glClearColor(0,0,0,1);
+	glLineWidth(1.f);
+	glPointSize(2.f);
+	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_LIGHTING);
+	glEnable(GL_POINT_SMOOTH);
+	glEnable(GL_POLYGON_SMOOTH);
+
+	set2DProjection();
 
 	const double margin = 0.05;
 	const double len = 1 - margin * 2;
@@ -113,7 +119,7 @@ void TopologyViewer::draw() {
 }
 
 Pt3 TopologyViewer::win2Screen(int x, int y) {
-	return Vec3(x / (double)_w, double(_h - y) / _h, 0, 0);
+	return Pt3(double(x) / _w, double(_h - y) / _h, 0);
 }
 
 int TopologyViewer::handle(int ev) {
@@ -130,14 +136,8 @@ int TopologyViewer::handle(int ev) {
 			}
 			else
 				_panning = true;
-		}
-		else if(Fl::event_button()==FL_RIGHT_MOUSE) {
-			if(!_highlighted && !_highlightedPt) {
-				_prevpos = Pt2(Fl::event_x(),Fl::event_y());
-				_zooming = true;
-			}
 		}*/
-		return 1;  // must return 1 here to ensure FL_MOVE is sent
+		return 1;  // must return 1 here to ensure FL_PUSH? is sent
 	}
 	else if(ev==FL_DRAG) {}
 	else if(ev==FL_RELEASE) {}
@@ -176,17 +176,6 @@ int TopologyViewer::handle(int ev) {
 	else if(ev==FL_KEYUP) {}
 
 	return Fl_Gl_Window::handle(ev);
-}
-
-void TopologyViewer::init() {
-	glClearColor(0,0,0,1);
-	glLineWidth(1.f);
-	glPointSize(2.f);
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_POINT_SMOOTH);
-	glEnable(GL_POLYGON_SMOOTH);
-
-	set2DProjection();
 }
 
 void TopologyViewer::resize(int x, int y, int width, int height) {

@@ -2,17 +2,9 @@
 #define TOPOLOGY_VIEWER_H
 
 #include <FL/Fl_Gl_Window.H>
-#include <FL/gl.h>
-#include <FL/Fl.H>
-#include <FL/Fl_Button.H>
-#include <FL/Fl_File_Chooser.H>
 
 #include "GUI/Button.h"
-#include "RenderingPrimitives.h"
-
-#include <list>
-#include <map>
-#include <fstream>
+#include "TMesh.h"
 
 using namespace std;
 
@@ -26,7 +18,6 @@ public:
 	~TopologyViewer();
 	void draw();
 	int handle(int flag);
-	void init();
 	void resize(int x, int y, int width, int height);
 
 	inline int getWidth() { return _w; }

@@ -1,17 +1,7 @@
 #ifndef RENDERING_PRIMITIVES_H
 #define RENDERING_PRIMITIVES_H
 
-#include "Common/Matrix.h"
-
-#include <fstream>
-#include <sstream>
-#include <iomanip>
-#include <iostream>
-
-#include <algorithm>
-#include <mutex>
-#include <vector>
-#include <string>
+#include "Common/Common.h"
 
 using namespace std;
 
@@ -131,205 +121,23 @@ public:
 	inline void setId(unsigned int id) { _id = id; }
 };
 
-
-class View {
-protected:
-	Mat4 _modelview;
-	Mat4 _proj;
-	double _viewport[4];
-
-public:
-	View() {
-		_viewport[0] = _viewport[1] = 0;
-		_viewport[2] = _viewport[3] = 1;
-	}
-
-	Mat4* getModelView() { return &_modelview; }
-	Mat4* getProjection() { return &_proj; }
-	double* getViewport() { return _viewport; }
-};
-
-// For storing camera information and mutex locks for separate viewers
+// For storing shared camera information
 class SceneInfo
 {
-protected:
-	Matrix<double, 4> _modelview;
-	Matrix<double, 4> _translate;
-	Matrix<double, 4> _rotate;
-
-public:
-	Matrix<double, 4>* getModelview() { return &_modelview; }
-	Matrix<double, 4>* getTranslate() { return &_translate; }
-	Matrix<double, 4>* getRotate() { return &_rotate; }
-
-	inline void updateModelView() {_modelview = _translate * _rotate;}
-};
-
-class Sphere; // for reference
-
-class TMesh
-{
+// Shared singleton information
 private:
-	static inline bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
-	static bool validateKnots(const vector<double> &knots);
-	void freeGridPoints();
+	static Mat4 modelview0;
+	static Mat4 translate0;
+	static Mat4 rotate0;
 
 public:
-	const double radius = 0.05;
-	mutex lock; // For allowing only one thread to access the mesh at a time
-	int rows, cols;
-	int rowDeg, colDeg;
-	vector<double> knotsH, knotsV;
-	vector<vector<bool>> gridH, gridV;
-	vector<vector<Sphere*>> gridPoints;
+	Mat4 *getModelview() { return &modelview0; }
+	Mat4 *getTranslate() { return &translate0; }
+	Mat4 *getRotate() { return &rotate0; }
 
-
-	TMesh(int r, int c, int rd, int cd, bool autoFill = true);
-	~TMesh();
-
-	void assign(TMesh &tmesh);
-	bool meshFromFile(const string &path);
-	bool meshToFile(const string &path);
+	static void initScene();
+	static inline void updateModelView() { modelview0 = translate0 * rotate0; }
 };
-
-class TMeshScene : public SceneInfo
-{
-protected:
-	vector<vector<Sphere*>> gridSpheres;
-
-public:
-	TMeshScene() {}
-
-	void setup(TMesh *tmesh);
-	const vector<vector<Sphere*>> &getSpheres() { return gridSpheres; }
-};
-
-
-
-class TriMesh {
-protected:
-	Pt3Array* _pts;
-	Vec3Array* _vnormals;
-	Vec3Array* _fnormals;
-	TriIndArray* _tinds; // mesh is made of triangles
-public:
-
-	TriMesh() {
-		_pts = NULL;
-		_vnormals = NULL;
-		_fnormals = NULL;
-		_tinds = NULL;
-	}
-
-	TriMesh(Pt3Array* pts, TriIndArray* inds) {
-		_pts = pts;
-		_tinds = inds;
-	}
-
-	void setPoints(Pt3Array* p) {
-		_pts = p;
-	}
-
-	void setInds(TriIndArray* ti) {
-		_tinds = ti;
-	}
-
-	void setVNormals(Vec3Array* n) {
-		_vnormals = n;
-	}
-
-	void setFNormals(Vec3Array* n) {
-		_fnormals = n;
-	}
-
-	Pt3Array* getPoints() { return _pts; }
-	TriIndArray* getInds() { return _tinds; }
-	Vec3Array* getVNormals() { return _vnormals; }
-	Vec3Array* getFNormals() { return _fnormals; }
-
-	// use these delete functions carefully
-	void del() {
-		delPts();
-		delInds();
-		delVNormals();
-		delFNormals();
-	}
-
-protected:
-	void delInds() {
-		if(_tinds)
-			delete _tinds;
-		_tinds = NULL;
-	}
-
-	void delPts() {
-		if(_pts)
-			delete _pts;
-		_pts = NULL;
-	}
-
-	void delVNormals() {
-		if(_vnormals)
-			delete _vnormals;
-		_vnormals = NULL;
-	}
-
-	void delFNormals() {
-		if(_fnormals)
-			delete _fnormals;
-		_fnormals = NULL;
-	}
-};
-
-class TriMeshScene : public SceneInfo {
-protected:
-	Material* _mat;
-	vector<Light*> _lights;
-	TriMesh* _mesh;
-	vector<pair<Pt3, int>> curvePoints;
-	bool useCurve;
-
-public:
-	TriMeshScene() {
-		_mat = NULL;
-		_mesh = NULL;
-		useCurve = false;
-	}
-
-	~TriMeshScene() {
-		for(Light *l: _lights) delete l;
-		_lights.clear();
-		if(_mesh)
-		{
-			_mesh->del(); // have to be sure that no one shares this data
-			delete _mesh;
-		}
-		if(_mat) delete _mat;
-	}
-
-	void setCurve(vector<pair<Pt3, int>> points)
-	{
-		curvePoints = move(points);
-		useCurve = true;
-	}
-	void setMesh(TriMesh* m)
-	{
-		_mesh = m;
-		useCurve = false;
-	}
-	void setMaterial(Material* m) { _mat = m; }
-	void addLight(Light* l) { _lights.push_back(l); }
-
-	bool willDrawCurve() const { return useCurve; }
-	vector<pair<Pt3, int>> &getCurve() { return curvePoints; }
-	TriMesh* getMesh() { return _mesh; }
-	Material* getMaterial() { return _mat; }
-	int getNumLights() { return (int)_lights.size(); }
-	Light* getLight(int i) { return _lights[i]; }
-};
-
-
-
 
 class RenderingUtils {
 public:
@@ -342,15 +150,5 @@ public:
 
 #define SHADE_FLAT 0
 #define SHADE_GOURAUD 1
-#define SHADE_NAIVE_PHONG 2
-#define SHADE_SPHERICAL_PHONG 2
-
-
-// Newell's method
-inline Vec3 triFaceNormal(const Pt3 &a, const Pt3 &b, const Pt3 &c, bool doNorm = true) {
-	Vec3 res = cross(b-a, c-a) + cross(c-b, a-b) + cross(a-c, b-c);
-	if(doNorm) res.normalize();
-	return res;
-}
 
 #endif

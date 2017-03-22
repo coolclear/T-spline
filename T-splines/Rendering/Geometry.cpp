@@ -1,7 +1,5 @@
 #include "Rendering/Geometry.h"
 #include "Common/Common.h"
-#define _USE_MATH_DEFINES
-#include <cmath>
 
 double GeometryUtils::pointRayClosest(const Pt3& pt, const Ray& ray) {
 	double t = (pt-ray.p)*ray.dir / (ray.dir*ray.dir);

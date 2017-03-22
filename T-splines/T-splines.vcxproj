@@ -145,14 +145,14 @@
     <ClInclude Include="Rendering\Geometry.h" />
     <ClInclude Include="GUI\GeometryWindow.h" />
     <ClInclude Include="Common\Matrix.h" />
+    <ClInclude Include="Rendering\MeshRenderer.h" />
     <ClInclude Include="Rendering\Operator.h" />
     <ClInclude Include="GUI\PropertyWindow.h" />
-    <ClInclude Include="GUI\RenderingWindow.h" />
     <ClInclude Include="Rendering\RenderingPrimitives.h" />
     <ClInclude Include="Rendering\ShadeAndShapes.h" />
     <ClInclude Include="Rendering\TopologyViewer.h" />
     <ClInclude Include="Rendering\ZBufferRenderer.h" />
-    <ClInclude Include="TriMeshScene.h" />
+    <ClInclude Include="TMesh.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GUI\TopologyWindow.cpp" />
@@ -162,12 +162,12 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="GUI\GeometryWindow.cpp" />
     <ClCompile Include="GUI\PropertyWindow.cpp" />
-    <ClCompile Include="GUI\RenderingWindow.cpp" />
+    <ClCompile Include="Rendering\MeshRenderer.cpp" />
     <ClCompile Include="Rendering\RenderingPrimitives.cpp" />
     <ClCompile Include="Rendering\ShadeAndShapes.cpp" />
     <ClCompile Include="Rendering\TopologyViewer.cpp" />
     <ClCompile Include="Rendering\ZBufferRenderer.cpp" />
-    <ClCompile Include="TriMeshScene.cpp" />
+    <ClCompile Include="TMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="fltk.lib.vcxproj">

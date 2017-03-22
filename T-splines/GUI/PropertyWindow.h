@@ -28,40 +28,10 @@
 class GeometryUpdater;
 class WidgetUpdater;
 
-/*
-class MaterialColorButton : public Fl_Button {
-protected:
-	Color _color;
-public:
-	MaterialColorButton(int x, int y, const char* name);
-	void setColor(const Color& c);
-	const Color& getColor() { return _color; }
-};
-
-class MaterialWindow : public Fl_Window {
-protected:
-	Material* _mat;
-
-	MaterialColorButton* _diffuse, *_specular, *_ambient;
-	Fl_Float_Input* _specExp, *_refl, *_trans, *_refr;
-public:
-	MaterialWindow(int x, int y);
-
-	void setMaterial(Material* mat);
-	Material* getMaterial() { return _mat; }
-
-protected:
-	static void colorButton(Fl_Widget* widget, void* p);
-	static void valueChanged(Fl_Widget* widget, void* p);
-};
-*/
-
 class PropertyWindow : public Fl_Window, public Operand {
 private:
 	static PropertyWindow* _singleton;
 	static Operator* _op;
-
-	//MaterialWindow* _matWindow;
 
 	Geometry* _geom;
 	GeometryUpdater* _geomUpdater;
@@ -98,7 +68,6 @@ protected:
 
 	GeometryUpdater* getGeometryUpdater() { return _geomUpdater; }
 	WidgetUpdater* getWidgetUpdater() { return _widgetUpdater; }
-	//MaterialWindow* getMaterialWindow() { return _matWindow; }
 };
 
 // The geometry updater updates the geometry objects when the fields in the property window are changed

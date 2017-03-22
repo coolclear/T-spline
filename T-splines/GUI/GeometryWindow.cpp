@@ -1,15 +1,5 @@
 #include "GUI/GeometryWindow.h"
 #include "GUI/PropertyWindow.h"
-#include <time.h>
-#include <iostream>
-#include <sstream>
-
-#include <FL/Fl_Color_Chooser.H>
-#define _USE_MATH_DEFINES
-#include <cmath>
-#ifndef M_PI
-#define M_PI 3.1415926535897932385
-#endif
 
 using namespace std;
 
@@ -46,8 +36,6 @@ ArcBall::ArcBall_t* GeometryWindow::_arcBall = NULL;
 Vec3 GeometryWindow::_panVec = Vec3(0, 0, 0, 0);
 Vec3 GeometryWindow::_zoomVec = Vec3(0, 0, 0, 0);
 
-TMeshScene* GeometryWindow::_meshScene = NULL;
-ZBufferRenderer* GeometryWindow::_zbuffer = NULL;
 Intersector* GeometryWindow::_intersector = NULL;
 std::map<Geometry*, Operator*> GeometryWindow::_geom2op;
 int GeometryWindow::_inputMode = INPUT_VIEWING;
@@ -55,46 +43,30 @@ Geometry* GeometryWindow::_highlighted = NULL;
 
 GeometryWindow* GeometryWindow::_singleton = NULL;
 
+bool GeometryWindow::_drawGrid = true;
+bool GeometryWindow::_drawControlPoints = true;
+bool GeometryWindow::_drawSurface = true;
+
+mutex GeometryWindow::sceneLock;
+TMeshScene GeometryWindow::_meshScene;
+TriMeshScene GeometryWindow::_scene;
+MeshRenderer GeometryWindow::_renderer;
+ZBufferRenderer GeometryWindow::_zbuffer;
+
 const int WIN_LOWER_SPACE = 0;
 const int MENU_SPACE = 0;
 const double MOUSE_TOL = 8.f;
 
-int MainN = 4;
-
 void GeometryWindow::updateModelView()
 {
-	if(_meshScene) _meshScene->updateModelView();
+	SceneInfo::updateModelView();
 }
-
 
 void GeometryWindow::setupControlPoints(TMesh *tmesh)
 {
 	sceneLock.lock();
 
-	if(_meshScene == NULL)
-	{
-		_meshScene = new TMeshScene();
-
-		Mat4* rot = _meshScene->getRotate();
-		Mat4* trans = _meshScene->getTranslate();
-
-		const double A[19] = {
-			0.909375070178, -0.0740295117531, 0.409336197201, 0,
-			-0.0373269545854, 0.965544756015, 0.257545774263, 0,
-			-0.414298441997, -0.249485712232, 0.875279623743, 0,
-			0, 0, 0, 1,
-			-2.1925264022, -1.6757205209, -3.18389057922};
-		int ai = 0;
-		for(int j = 0; j < 4; j++)
-			for(int k = 0; k < 4; k++)
-				(*rot)[j][k] = A[ai++];
-
-		for(int j = 0; j < 3; j++)
-			(*trans)[3][j] = A[ai++];
-	}
-
-	updateModelView();
-	_meshScene->setup(tmesh);
+	_meshScene.setup(tmesh);
 
 	if(_geom2op.size() > 0)
 	{
@@ -103,7 +75,7 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 		_geom2op.clear();
 	}
 
-	for(const auto &row: _meshScene->getSpheres())
+	for(const auto &row: _meshScene.getSpheres())
 	{
 		for(const auto &sphere: row)
 		{
@@ -112,8 +84,18 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 		}
 	}
 
-	_zbuffer->setScene(_meshScene);
-	_zbuffer->initScene();
+	_zbuffer.setScene(&_meshScene);
+	_zbuffer.initScene();
+
+	sceneLock.unlock();
+}
+
+void GeometryWindow::setupSurface(TMesh *tmesh)
+{
+	sceneLock.lock();
+
+	_scene.setScene(tmesh);
+	_renderer.setTriMeshScene(&_scene);
 
 	sceneLock.unlock();
 }
@@ -136,88 +118,81 @@ GeometryWindow::GeometryWindow(int x, int y, int w, int h, const char* l)
 	_lastTime = clock()/((double)CLOCKS_PER_SEC);
 
 	_arcBall = new ArcBall::ArcBall_t((float)_w, (float)_h);
-	_zbuffer = new ZBufferRenderer();
 	_intersector = new Intersector();
-
-//	_objviewer = NULL;
-//	_objviewer = new RenderingWindow(1190, 40, w, h, "Mesh Viewer", 0);
 
 	this->callback(escapeButtonCb,this);
 	Fl::repeat_timeout(REFRESH_RATE, GeometryWindow::updateCb, this);
 
-	//openFile("files/default.ray");
-//	setupControlPoints(MainN);
-
-	// ? must have scene file before you init
 	GeometryWindow::init();
 	_singleton = this;
 
 	show();
 }
 
-void GeometryWindow::init() {
-	glClearColor(1.f, 1.f, 1.f, 1.f);
+void GeometryWindow::init()
+{
+	glClearColor(0, 0, 0, 1);
 	glEnable(GL_POLYGON_SMOOTH);
 	glEnable(GL_LINE_SMOOTH);
 	glEnable(GL_POINT_SMOOTH);
 
-	glEnable(GL_COLOR_MATERIAL);
 	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
+
+	glEnable(GL_COLOR_MATERIAL);
 
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
 	gluPerspective(45.f,1.f,.1f,200.f);
 	mglReadMatrix(GL_PROJECTION_MATRIX,_proj);
-}
 
-// this is the main display function, calls the zbuffer renderer
-void GeometryWindow::display() {
-//	printf("geo display\t");
-	_singleton->redraw();
+	glViewport(0, 0, _w, _h);
 }
 
 void GeometryWindow::draw()
 {
-	if(_meshScene)
-	{
-		sceneLock.lock();
-//		printf("geo draw\t");
+	sceneLock.lock();
 
-		glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
-		glEnable(GL_LIGHTING);
-		glEnable(GL_DEPTH_TEST);
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		gluPerspective(45.f, 1.f, .1f, 200.f);
-		//mglLoadMatrix(_proj);
+	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_DEPTH_TEST);
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	gluPerspective(45.f, 1.f, .1f, 200.f);
 
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		mglLoadMatrix(*_meshScene->getModelview());
-		Mat4 &m = *_meshScene->getModelview();
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	mglLoadMatrix(*_meshScene.getModelview());
+	Mat4 &m = *_meshScene.getModelview();
 
-		glShadeModel(GL_SMOOTH);
-		glDisable(GL_CULL_FACE);
-		glEnable(GL_DEPTH_TEST);
-		glDisable(GL_LIGHTING);
-		glDisable(GL_COLOR_MATERIAL);
+	glShadeModel(GL_SMOOTH);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_COLOR_MATERIAL);
 
-		if(_zbuffer)
-			_zbuffer->draw();
+	// Drawing starts here ----------------------------
 
-		sceneLock.unlock();
+	_zbuffer.turnOnGrid(_drawGrid);
+	_zbuffer.turnOnControlPoints(_drawControlPoints);
+	_zbuffer.draw();
 
-		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
-		glMatrixMode(GL_MODELVIEW);
-		glPopMatrix();
+	if(_drawSurface)
+		_renderer.draw();
 
-		swap_buffers();
-	}
+	// Drawing ends here ------------------------------
+
+	sceneLock.unlock();
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+
+	swap_buffers();
 }
 
 int GeometryWindow::handle(int ev)
@@ -261,16 +236,16 @@ int GeometryWindow::handle(int ev)
 //				prepScene();
 			}
 			if(ev == FL_RELEASE) {
-				Operator* op = _zbuffer->getOperator();
+				Operator* op = _zbuffer.getOperator();
 				_inputMode = INPUT_EDITING;
 				_holdAxis = -1;
-				_zbuffer->setOperator(op, OP_MODE_TRANSLATE);
+				_zbuffer.setOperator(op, OP_MODE_TRANSLATE);
 			}
 		}
 		else if(_inputMode == INPUT_EDITING) {
 			if(ev == FL_MOVE || ev == FL_DRAG)
 			{
-				Operator* op = _zbuffer->getOperator();
+				Operator* op = _zbuffer.getOperator();
 				if(op) {
 					IsectAxisData data;
 					Ray r = getMouseRay(x, y);
@@ -280,13 +255,13 @@ int GeometryWindow::handle(int ev)
 					int editMode = OP_MODE_TRANSLATE;
 
 					if(data.hit) {
-						if(_zbuffer->getOperatorMode() != (editMode|data.axis))
-							_zbuffer->setOperator(op, editMode|data.axis);
+						if(_zbuffer.getOperatorMode() != (editMode|data.axis))
+							_zbuffer.setOperator(op, editMode|data.axis);
 						_holdAxis = data.axis;
 					}
 					else {
-						if(_zbuffer->getOperatorMode() != editMode)
-							_zbuffer->setOperator(op, editMode);
+						if(_zbuffer.getOperatorMode() != editMode)
+							_zbuffer.setOperator(op, editMode);
 						_holdAxis = -1;
 					}
 
@@ -340,17 +315,14 @@ int GeometryWindow::handle(int ev)
 				double t = 1e12; // INF
 				Geometry* hobj = NULL;
 				sceneLock.lock();
-				if(_meshScene)
+				for(const auto &row: _meshScene.getSpheres())
 				{
-					for(const auto &row: _meshScene->getSpheres())
+					for(const auto &sphere: row)
 					{
-						for(const auto &sphere: row)
-						{
-							sphere->accept(_intersector, &data);
-							if(data.hit && t > data.t) {
-								t = data.t;
-								hobj = sphere;
-							}
+						sphere->accept(_intersector, &data);
+						if(data.hit && t > data.t) {
+							t = data.t;
+							hobj = sphere;
 						}
 					}
 				}
@@ -360,20 +332,20 @@ int GeometryWindow::handle(int ev)
 			}
 			else if(ev == FL_RELEASE)
 			{
-				_zbuffer->setSelected(_highlighted);
+				_zbuffer.setSelected(_highlighted);
 				if(_highlighted) {
-					_zbuffer->setOperator(_geom2op[_highlighted], OP_MODE_TRANSLATE);
-					_zbuffer->getOperator()->setState(OP_TRANSLATE);
+					_zbuffer.setOperator(_geom2op[_highlighted], OP_MODE_TRANSLATE);
+					_zbuffer.getOperator()->setState(OP_TRANSLATE);
 					_inputMode = INPUT_EDITING;
 					PropertyWindow::openPropertyWindow(_highlighted, _geom2op[_highlighted]);
 
 					_singleton->show(); // Prevents the property window to steal the first focus.
 				}
 				else {
-					if(_zbuffer->getOperator()) {
-						_zbuffer->getOperator()->setState(OP_NONE);
-						_zbuffer->setSelected(NULL);
-						_zbuffer->setOperator(NULL, 0);
+					if(_zbuffer.getOperator()) {
+						_zbuffer.getOperator()->setState(OP_NONE);
+						_zbuffer.setSelected(NULL);
+						_zbuffer.setOperator(NULL, 0);
 						PropertyWindow::closePropertyWindow();
 					}
 				}
@@ -382,7 +354,7 @@ int GeometryWindow::handle(int ev)
 			}
 		}
 
-		_zbuffer->setHighlighted(_highlighted);
+		_zbuffer.setHighlighted(_highlighted);
 		_prevMx = x;
 		_prevMy = y;
 	}
@@ -392,21 +364,21 @@ int GeometryWindow::handle(int ev)
 			_inputMode = INPUT_SELECTING;
 		else if(ctrl && !ctrl1)
 		{
-			if(_inputMode == INPUT_SELECTING && _zbuffer->getSelected() == NULL) {
+			if(_inputMode == INPUT_SELECTING && _zbuffer.getSelected() == NULL) {
 				_inputMode = INPUT_VIEWING;
 			}
-			else if(_zbuffer->getSelected() != NULL) {
+			else if(_zbuffer.getSelected() != NULL) {
 				_inputMode = INPUT_EDITING;
 			}
 
 			_highlighted = NULL;
-			_zbuffer->setHighlighted(_highlighted);
+			_zbuffer.setHighlighted(_highlighted);
 		}
 		if(shift && !shift1) {
 			if(_inputMode == INPUT_EDITING) {
-				Operator* op = _zbuffer->getOperator();
-				_zbuffer->setOperator(op, OP_MODE_TRANSLATE);
-				_zbuffer->getOperator()->setState(OP_TRANSLATE);
+				Operator* op = _zbuffer.getOperator();
+				_zbuffer.setOperator(op, OP_MODE_TRANSLATE);
+				_zbuffer.getOperator()->setState(OP_TRANSLATE);
 				_holdAxis = -1;
 			}
 		}
@@ -439,7 +411,7 @@ int GeometryWindow::handle(int ev)
 				mglReadMatrix(GL_MODELVIEW_MATRIX, mat);
 				glPopMatrix();
 
-				Mat4* rot = _meshScene->getRotate();
+				Mat4* rot = _meshScene.getRotate();
 				(*rot) = (*rot) * mat;
 				updateModelView();
 			}
@@ -456,7 +428,7 @@ int GeometryWindow::handle(int ev)
 
 				Pt3 p = r1.p + r1.dir*3.f;
 				Vec3 v = (p-_panVec);
-				Mat4* trans = _meshScene->getTranslate();
+				Mat4* trans = _meshScene.getTranslate();
 				(*trans)[3][0] += v[0];
 				(*trans)[3][1] += v[1];
 				(*trans)[3][2] += v[2];
@@ -475,15 +447,46 @@ int GeometryWindow::handle(int ev)
 
 				Pt3 p = r1.p + r1.dir*3.f;
 				Vec3 v = (p-_panVec);
-				Mat4* trans = _meshScene->getTranslate();
+				Mat4* trans = _meshScene.getTranslate();
 				(*trans)[3][0] += v[0];
 				(*trans)[3][1] += v[1];
 				(*trans)[3][2] += v[2];
 				updateModelView();
 			}
+			// toggle wireframes
+			else if(key == 'f')
+			{
+				_renderer.drawWire ^= 1;
+			}
+			// toggle shading mode
+			else if(key == 'g')
+			{
+				_renderer.setShadingModel(_renderer.getShadingModel() ^ SHADE_FLAT ^ SHADE_GOURAUD);
+			}
+			// toggle lighting mode (use normal as color, or use lighting)
+			else if(key == 'v')
+			{
+				_renderer.useNormal ^= 1;
+			}
+			// toggle axis lines
+			else if(key == 'z')
+			{
+				_drawGrid ^= 1;
+			}
+			// toggle showing control points
+			else if(key == 'x')
+			{
+				_drawControlPoints ^= 1;
+			}
+			// toggle showing the surface
+			else if(key == 'c')
+			{
+				_drawSurface ^= 1;
+			}
 		}
 	}
 
+	// TODO: which one to use?
 	return 0;
 //	return Fl_Gl_Window::handle(ev);
 }
@@ -495,7 +498,6 @@ void GeometryWindow::resize(int x0, int y0, int w, int h) {
 	_w = w;
 	_h = h-(WIN_LOWER_SPACE+MENU_SPACE);
 
-	glViewport(0, 0, _w, _h);
 	if(_arcBall)
 		_arcBall->setBounds((float)w, (float)h);
 }
@@ -507,7 +509,7 @@ void GeometryWindow::handleRot(int x, int y, bool beginRot) {
 		mousePt.s.X = (float) x/2.0;
 		mousePt.s.Y = (float) y/2.0;
 
-		_lastRot = (*_meshScene->getRotate());
+		_lastRot = (*_meshScene.getRotate());
 		_arcBall->click(&mousePt);
 	}
 	else {
@@ -520,7 +522,7 @@ void GeometryWindow::handleRot(int x, int y, bool beginRot) {
 		_arcBall->drag(&mousePt, &thisQuat);
 		ArcBall::Matrix3fSetRotationFromQuat4f(&thisRot, &thisQuat);
 
-		Mat4* rot = _meshScene->getRotate();
+		Mat4* rot = _meshScene.getRotate();
 		convertMat(thisRot, *rot);
 		(*rot) = _lastRot * (*rot);
 		updateModelView();
@@ -528,8 +530,8 @@ void GeometryWindow::handleRot(int x, int y, bool beginRot) {
 }
 
 // handles the camera zoom
-void GeometryWindow::handleZoom(int x, int y, bool beginZoom) {
-
+void GeometryWindow::handleZoom(int x, int y, bool beginZoom)
+{
 	double dy = y - _prevMy;
 
 	if(beginZoom) {
@@ -539,7 +541,7 @@ void GeometryWindow::handleZoom(int x, int y, bool beginZoom) {
 	}
 	else {
 		dy *= 0.03;
-		Mat4* trans = _meshScene->getTranslate();
+		Mat4* trans = _meshScene.getTranslate();
 		(*trans)[3][0] += _zoomVec[0] * dy;
 		(*trans)[3][1] += _zoomVec[1] * dy;
 		(*trans)[3][2] += _zoomVec[2] * dy;
@@ -548,8 +550,8 @@ void GeometryWindow::handleZoom(int x, int y, bool beginZoom) {
 }
 
 // handles camera pan
-void GeometryWindow::handlePan(int x, int y, bool beginPan) {
-
+void GeometryWindow::handlePan(int x, int y, bool beginPan)
+{
 	int dy = y - _prevMy;
 
 	if(beginPan) {
@@ -560,7 +562,7 @@ void GeometryWindow::handlePan(int x, int y, bool beginPan) {
 		Ray r = getMouseRay(x, y);
 		Pt3 p = r.p + r.dir*3.f;
 		Vec3 v = (p-_panVec);
-		Mat4* trans = _meshScene->getTranslate();
+		Mat4* trans = _meshScene.getTranslate();
 		(*trans)[3][0] += v[0];
 		(*trans)[3][1] += v[1];
 		(*trans)[3][2] += v[2];
@@ -569,47 +571,42 @@ void GeometryWindow::handlePan(int x, int y, bool beginPan) {
 }
 
 // gets the ray shooting into the scene corresponding to a position on the screen
-Ray GeometryWindow::getMouseRay(int mx, int my) {
-	if(_meshScene) {
-		GLdouble mv[16], proj[16];
-		GLint viewport[4] = {0, 0, _w, _h};
+Ray GeometryWindow::getMouseRay(int mx, int my)
+{
+	GLdouble mv[16], proj[16];
+	GLint viewport[4] = {0, 0, _w, _h};
 
-		mLoadMatrix(*_meshScene->getModelview(), mv);
-		mLoadMatrix(_proj, proj);
-		GLdouble ax, ay, az;
-		GLdouble bx, by, bz;
-		gluUnProject(mx, (_h-my), 0.f, mv, proj, viewport, &ax, &ay, &az);
-		gluUnProject(mx, (_h-my), .5f, mv, proj, viewport, &bx, &by, &bz);
+	mLoadMatrix(*_meshScene.getModelview(), mv);
+	mLoadMatrix(_proj, proj);
+	GLdouble ax, ay, az;
+	GLdouble bx, by, bz;
+	gluUnProject(mx, (_h-my), 0.f, mv, proj, viewport, &ax, &ay, &az);
+	gluUnProject(mx, (_h-my), .5f, mv, proj, viewport, &bx, &by, &bz);
 
-		Ray ret(
-			Pt3(ax, ay, az),
-			Vec3((bx-ax), (by-ay), (bz-az), 0));
+	Ray ret(
+		Pt3(ax, ay, az),
+		Vec3((bx-ax), (by-ay), (bz-az), 0));
 
-		ret.dir.normalize();
-
-		return ret;
-	}
-	return Ray();
+	ret.dir.normalize();
+	return ret;
 }
 
-Pt3 GeometryWindow::getMousePoint(int mx, int my) {
-	if(_meshScene) {
-		GLdouble mv[16], proj[16];
-		GLint viewport[4] = {0, 0, _w, _h};
+Pt3 GeometryWindow::getMousePoint(int mx, int my)
+{
+	GLdouble mv[16], proj[16];
+	GLint viewport[4] = {0, 0, _w, _h};
 
-		mLoadMatrix(*_meshScene->getModelview(), mv);
-		mLoadMatrix(_proj, proj);
-		GLdouble ax, ay, az;
-		gluUnProject(mx, (_h-my), 0.f, mv, proj, viewport, &ax, &ay, &az);
+	mLoadMatrix(*_meshScene.getModelview(), mv);
+	mLoadMatrix(_proj, proj);
+	GLdouble ax, ay, az;
+	gluUnProject(mx, (_h-my), 0.f, mv, proj, viewport, &ax, &ay, &az);
 
-		return Pt3(ax, ay, az);
-	}
-	return Pt3(0, 0, 0);
+	return Pt3(ax, ay, az);
 }
 
 // This handles the case when an operator translation is performed
 void GeometryWindow::handleAxisTrans(int mx, int my, bool beginTrans) {
-	Operator* op = _zbuffer->getOperator();
+	Operator* op = _zbuffer.getOperator();
 	Ray r = getMouseRay(mx, my);
 	Pt3 np;
 	switch(_holdAxis) {

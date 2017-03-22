@@ -5,29 +5,29 @@
 
 using namespace std;
 
-double Str::parseDouble(const string& str) {
+double StringUtil::parseDouble(const string& str) {
 	double ret;
 	stringstream sst(str);
 	sst>>ret;
 	return ret;
 }
 
-int Str::parseInt(const string& str) {
+int StringUtil::parseInt(const string& str) {
 	int ret;
 	stringstream sst(str);
 	sst>>ret;
 	return ret;
 }
 
-bool Str::isLetter(char c) {
+bool StringUtil::isLetter(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-bool Str::isNumber(char c) {
+bool StringUtil::isNumber(char c) {
 	return (c >= '0' && c <= '9');
 }
 
-vector<string> Str::split(const string& s, char c) {
+vector<string> StringUtil::split(const string& s, char c) {
 	vector<string> ret;
 	string cur = "";
 	for(int j = 0;j<s.length();j++) {
@@ -50,7 +50,7 @@ vector<string> Str::split(const string& s, char c) {
 	return move(ret2);
 }
 
-void Util::convertMat(const ArcBall::Matrix3f_t& mi, Mat4& mout) {
+void MatrixUtil::convertMat(const ArcBall::Matrix3f_t& mi, Mat4& mout) {
 	mout[0][0] = mi.s.M00;
 	mout[1][0] = mi.s.M10;
 	mout[2][0] = mi.s.M20;
@@ -69,26 +69,86 @@ void Util::convertMat(const ArcBall::Matrix3f_t& mi, Mat4& mout) {
 	mout[3][3] = 1;
 }
 
-void Util::mglLoadMatrix(const Mat4& mat) {
+void MatrixUtil::mglLoadMatrix(const Mat4& mat) {
 	GLfloat m[16];
 	for(int i = 0; i < 16; i++)
 		m[i] = mat[i>>2][i&3];
 	glLoadMatrixf(m);
 }
 
-void Util::mglReadMatrix(GLenum glmat, Mat4& mat) {
+void MatrixUtil::mglReadMatrix(GLenum glmat, Mat4& mat) {
 	GLfloat m[16];
 	glGetFloatv(glmat, m);
 	for(int i = 0; i < 16; i++)
 		mat[i>>2][i&3] = m[i];
 }
 
-void Util::mLoadMatrix(const Mat4& mat, GLdouble m[16]) {
+void MatrixUtil::mLoadMatrix(const Mat4& mat, GLdouble m[16]) {
 	for(int i = 0; i < 16; i++)
 		m[i] = mat[i>>2][i&3];
 }
 
-void Util::mReadMatrix(GLdouble m[16], Mat4& mat) {
+void MatrixUtil::mReadMatrix(GLdouble m[16], Mat4& mat) {
 	for(int i = 0; i < 16; i++)
 		mat[i>>2][i&3] = m[i];
+}
+
+
+
+
+Vec3 Util::readVec3(istream &stream) {
+	Vec3 ret(0, 0, 0, 0);
+	stream>>ret[0]>>ret[1]>>ret[2];
+	return ret;
+}
+
+Pt3 Util::readPt3(istream &stream) {
+	Pt3 ret(0, 0, 0);
+	stream>>ret[0]>>ret[1]>>ret[2];
+	return ret;
+}
+
+double Util::readDouble(istream &stream) {
+	double ret;
+	stream>>ret;
+	return ret;
+}
+
+int Util::readInt(istream &stream) {
+	int ret;
+	stream>>ret;
+	return ret;
+}
+
+string Util::readString(istream &stream) {
+	string ret;
+	stream>>ret;
+	return ret;
+}
+
+void Util::writeVec3(ostream &stream, const Vec3& v) {
+	stream << v[0] << '\t' << v[1] << '\t' << v[2];
+}
+
+void Util::writePt3(ostream &stream, const Pt3& v) {
+	stream << v[0] << '\t' << v[1] << '\t' << v[2];
+}
+
+void Util::writeDouble(ostream &stream, double d) {
+	stream << d;
+}
+
+void Util::writeInt(ostream &stream, int d) {
+	stream << d;
+}
+
+void Util::writeString(ostream &stream, const string& s) {
+	stream << s;
+}
+
+
+double Util::rand1()
+{
+	const int x = 32700;
+	return ((rand() % x) * x + rand() % x) * 1.0 / (x*x);
 }

@@ -13,37 +13,32 @@
 #include <FL/Fl_Button.H>
 
 #include "Common/Common.h"
+#include "GUI/GeometryWindow.h"
 #include "Rendering/TopologyViewer.h"
-#include "GeometryWindow.h"
-#include "RenderingWindow.h"
-
-#include <vector>
 
 class TopologyWindow : public Fl_Window
 {
 protected:
-	TopologyViewer *tv;
-	TMesh *_mesh;
-	GeometryWindow *_geometry;
-	RenderingWindow *_renderer;
+	static TMesh _mesh;
 
-	Button *renderButton;
+	TopologyViewer *_viewer;
+	GeometryWindow *_geometry;
+
 	Button *loadButton;
 	Button *saveButton;
 
 public:
 	TopologyWindow(int x, int y, int w, int h, const char* l);
 	~TopologyWindow();
-	void prepGeometry();
-	void prepRenderer();
+	void updateControlPoints();
+	void updateSurface();
 	void loadMesh();
 	void saveMesh();
-	void setup(GeometryWindow *geometry, RenderingWindow *renderer)
+	void setup(GeometryWindow *geometry)
 	{
 		_geometry = geometry;
-		_renderer = renderer;
-		prepGeometry();
-		prepRenderer();
+		updateControlPoints();
+		updateSurface();
 	}
 
 protected:
