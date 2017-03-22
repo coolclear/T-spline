@@ -1,12 +1,13 @@
 General
 -------
 
-There are three windows for this program:
-- Topology (the headquarter),
-- Geometry,
-- Rendering.
+There are two windows (originally three) for this program:
+- Topology + the headquarter,
+- Geometry: mesh/surface rendering.
 
-The names are quite self-explanatory.
+Recently, the geometry window and the surface rendering window were separate.
+Now they have been combined into one. Moreover, the surface will be
+automatically refreshed after changes are made to the control points.
 
 
 Controls
@@ -21,13 +22,15 @@ Note that the focus must be on that window before you can use it.
 
 Topology window:
 - save/load buttons
-- render button
-  - Press this to update the rendering scene after making changes to the mesh.
 
-Rendering window:
+Mesh/Surface window:
 - f: toggle wireframe (on/off)
 - g: toggle shading mode (flat/smooth)
 - v: toggle coloring mode (6 lights/surface normal)
+
+- z: toggle main axes (RGB)
+- x: toggle control points
+- c: toggle the T-spline surface
 
 
 The T-mesh file format

@@ -33,10 +33,10 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 
 	_viewer->setMesh(&_mesh);
 
-	loadButton = new Button(320, 20, 60, 20, "Load");
+	loadButton = new Button(320, 10, 60, 20, "Load");
 	loadButton->callback(loadButtonCallback, this);
 
-	saveButton = new Button(390, 20, 60, 20, "Save");
+	saveButton = new Button(390, 10, 60, 20, "Save");
 	saveButton->callback(saveButtonCallback, this);
 
 	show();
@@ -56,21 +56,13 @@ TopologyWindow::~TopologyWindow()
 void TopologyWindow::updateControlPoints()
 {
 	if(_geometry)
-	{
-		_mesh.lock.lock();
 		_geometry->setupControlPoints(&_mesh);
-		_mesh.lock.unlock();
-	}
 }
 
 void TopologyWindow::updateSurface()
 {
 	if(_geometry)
-	{
-		_mesh.lock.lock();
 		_geometry->setupSurface(&_mesh);
-		_mesh.lock.unlock();
-	}
 }
 
 void TopologyWindow::loadMesh()

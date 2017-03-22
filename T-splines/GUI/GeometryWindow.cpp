@@ -66,7 +66,9 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 {
 	sceneLock.lock();
 
+	tmesh->lock.lock();
 	_meshScene.setup(tmesh);
+	tmesh->lock.unlock();
 
 	if(_geom2op.size() > 0)
 	{
@@ -92,9 +94,16 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 
 void GeometryWindow::setupSurface(TMesh *tmesh)
 {
+	static TMesh *lastT = NULL;
+	if(tmesh != NULL)
+		lastT = tmesh;
+
 	sceneLock.lock();
 
-	_scene.setScene(tmesh);
+	lastT->lock.lock();
+	_scene.setScene(lastT);
+	lastT->lock.unlock();
+
 	_renderer.setTriMeshScene(&_scene);
 
 	sceneLock.unlock();
@@ -233,13 +242,14 @@ int GeometryWindow::handle(int ev)
 		else if(_inputMode == INPUT_TRANS) {
 			if(_holdAxis >= 0) {
 				handleAxisTrans(x, y, false);
-//				prepScene();
 			}
 			if(ev == FL_RELEASE) {
 				Operator* op = _zbuffer.getOperator();
 				_inputMode = INPUT_EDITING;
 				_holdAxis = -1;
 				_zbuffer.setOperator(op, OP_MODE_TRANSLATE);
+
+				setupSurface(NULL);
 			}
 		}
 		else if(_inputMode == INPUT_EDITING) {
@@ -537,7 +547,6 @@ void GeometryWindow::handleZoom(int x, int y, bool beginZoom)
 	if(beginZoom) {
 		Ray r = getMouseRay(_w/2, _h/2);
 		_zoomVec = -r.dir;
-		cout << _zoomVec << endl;
 	}
 	else {
 		dy *= 0.03;
