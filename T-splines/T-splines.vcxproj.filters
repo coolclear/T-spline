@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Rendering\RenderingPrimitives.cpp" />
+    <ClCompile Include="TMesh.cpp" />
+    <ClCompile Include="Rendering\ArcBall.cpp">
+      <Filter>Others</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Geometry.cpp">
+      <Filter>Others</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\TopologyWindow.cpp">
+      <Filter>GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Common.cpp">
+      <Filter>Others</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\PropertyWindow.cpp">
+      <Filter>Others</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\ZBufferRenderer.cpp">
+      <Filter>Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\MeshRenderer.cpp">
+      <Filter>Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\TopologyViewer.cpp">
+      <Filter>Renderers</Filter>
+    </ClCompile>
+    <ClCompile Include="GUI\GeometryWindow.cpp">
+      <Filter>GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\ShadeAndShapes.cpp">
+      <Filter>Others</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Rendering\RenderingPrimitives.h" />
+    <ClInclude Include="TMesh.h" />
+    <ClInclude Include="Rendering\ArcBall.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Operator.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Matrix.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Geometry.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\TopologyWindow.h">
+      <Filter>GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Common.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\PropertyWindow.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ZBufferRenderer.h">
+      <Filter>Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\MeshRenderer.h">
+      <Filter>Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\TopologyViewer.h">
+      <Filter>Renderers</Filter>
+    </ClInclude>
+    <ClInclude Include="GUI\GeometryWindow.h">
+      <Filter>GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ShadeAndShapes.h">
+      <Filter>Others</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Others">
+      <UniqueIdentifier>{0f581edc-cac5-4195-8cd5-d87949e4ea5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderers">
+      <UniqueIdentifier>{20007f6e-2341-466f-b386-0a704ae177ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GUI">
+      <UniqueIdentifier>{9ad4e43f-bec6-47b0-87d2-6abae34c9f4e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="README.txt">
+      <Filter>Others</Filter>
+    </Text>
+  </ItemGroup>
+</Project>
