@@ -78,7 +78,7 @@ void TopologyWindow::loadMesh()
 	{
 		printf("Loaded [%s] successfully\n", filePath);
 		printf("Dimensions: %d x %d\n", _mesh.rows, _mesh.cols);
-		printf("Degree: %d x %d\n", _mesh.rowDeg, _mesh.colDeg);
+		printf("Degree: V %d x H %d\n", _mesh.degV, _mesh.degH);
 
 		updateControlPoints();
 		updateSurface();

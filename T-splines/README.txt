@@ -43,7 +43,7 @@ line as long as they follow the correct order ('+' for data, '-' for comments):
   - At least one dimension must be positive.
   - There may be a limit to the grid size (max 10^4).
 
-+ degrees: R_deg and C_deg (2 nonnegative integers)
++ degrees: deg_V and deg_H (2 nonnegative integers)
   - For each dimension, if the dimension is 0 (unused), the degree must be 0.
     If the dimension = n, the degree must be between 1 and n.
 
@@ -52,8 +52,8 @@ line as long as they follow the correct order ('+' for data, '-' for comments):
   + vertical lines (R x (C+1) boolean values)
 
 - knot values
-  + horizontal values (C + C_deg doubles)
-  + vertical values (R + R_deg doubles)
+  + horizontal values (C + deg_H doubles)
+  + vertical values (R + deg_V doubles)
   - There will be no knot value for an empty dimension (n + n_deg = 0)
   - Knot values (for each dimension) must be non-decreasing. E.g., double knots
     are allowed.

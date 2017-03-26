@@ -47,26 +47,26 @@ TMesh::TMesh(int r, int c, int rd, int cd, bool autoFill)
 	assert(validateDimensionsAndDegrees(r, c, rd, cd));
 	rows = r;
 	cols = c;
-	rowDeg = rd;
-	colDeg = cd;
+	degV = rd;
+	degH = cd;
 
 	// Assign some uniform knot values
 	if(cols > 0)
 	{
-		knotsH.resize(cols + colDeg);
-		if(autoFill)
+		knotsH.resize(cols + degH);
+		if(autoFill) // some default values: 0, 1, ...
 		{
-			for(int i = 0; i < cols + colDeg; ++i)
+			for(int i = 0; i < cols + degH; ++i)
 				knotsH[i] = i;
 			assert(validateKnots(knotsH));
 		}
 	}
 	if(rows > 0)
 	{
-		knotsV.resize(rows + rowDeg);
-		if(autoFill)
+		knotsV.resize(rows + degV);
+		if(autoFill) // some default values: 0, 1, ...
 		{
-			for(int i = 0; i < rows + rowDeg; ++i)
+			for(int i = 0; i < rows + degV; ++i)
 				knotsV[i] = i;
 			assert(validateKnots(knotsV));
 		}
@@ -79,7 +79,7 @@ TMesh::TMesh(int r, int c, int rd, int cd, bool autoFill)
 	// Assign some uniform coordinates initially
 	gridPoints.resize(rows + 1, vector<Sphere*>(cols + 1, NULL));
 
-	if(autoFill)
+	if(autoFill) // a default mesh on the XY-plane
 	{
 		for(int i = 0; i <= rows; ++i)
 			for(int j = 0; j <= cols; ++j)
@@ -105,8 +105,8 @@ void TMesh::assign(TMesh &T)
 
 	this->rows = T.rows;
 	this->cols = T.cols;
-	this->rowDeg = T.rowDeg;
-	this->colDeg = T.colDeg;
+	this->degH = T.degH;
+	this->degV = T.degV;
 	this->knotsH = move(T.knotsH);
 	this->knotsV = move(T.knotsV);
 	this->gridH = move(T.gridH);
@@ -135,7 +135,7 @@ bool TMesh::meshFromFile(const string &path)
 
 	// Read in dimensions and degrees, and validate them
 	int rows1 = -1, cols1 = -1;
-	int rowDeg1 = -1, colDeg1 = -1;
+	int degV1 = -1, degH1 = -1;
 	{
 		fs >> rows1 >> cols1;
 		if(!fs.good())
@@ -143,21 +143,21 @@ bool TMesh::meshFromFile(const string &path)
 			fprintf(stderr, "Failed to read T-mesh dimensions (R x C)\n");
 			return false;
 		}
-		fs >> rowDeg1 >> colDeg1;
+		fs >> degV1 >> degH1;
 		if(!fs.good())
 		{
 			fprintf(stderr, "Failed to read degrees\n");
 			return false;
 		}
-		if(!validateDimensionsAndDegrees(rows1, cols1, rowDeg1, colDeg1))
+		if(!validateDimensionsAndDegrees(rows1, cols1, degV1, degH1))
 		{
-			fprintf(stderr, "Invalid T-mesh dimensions (%d x %d) or degrees %d & %d\n",
-				rows1, cols1, rowDeg1, colDeg1);
+			fprintf(stderr, "Invalid T-mesh dimensions (%d x %d) or degrees V %d H %d\n",
+				rows1, cols1, degV1, degH1);
 			return false;
 		}
 	}
 
-	TMesh T(rows1, cols1, rowDeg1, colDeg1, false);
+	TMesh T(rows1, cols1, degV1, degH1, false);
 
 	// Read grid information
 	{
@@ -195,8 +195,8 @@ bool TMesh::meshFromFile(const string &path)
 
 	// Read knot values (monotonically increasing)
 	{
-		// - Horizontal: C + C_deg doubles
-		for(int i = 0; i < cols1 + colDeg1; ++i)
+		// - Horizontal: C + deg_H doubles
+		for(int i = 0; i < cols1 + degH1; ++i)
 		{
 			if(!(fs >> T.knotsH[i]))
 			{
@@ -209,8 +209,8 @@ bool TMesh::meshFromFile(const string &path)
 			fprintf(stderr, "Horizontal knot values are not non-decreasing\n");
 			return false;
 		}
-		// - Vertical: R + R_deg doubles
-		for(int i = 0; i < rows1 + rowDeg1; ++i)
+		// - Vertical: R + deg_V doubles
+		for(int i = 0; i < rows1 + degV1; ++i)
 		{
 			if(!(fs >> T.knotsV[i]))
 			{
@@ -279,7 +279,7 @@ bool TMesh::meshToFile(const string &path)
 	// Save dimensions and degrees
 	{
 		fs << this->rows << ' ' << this->cols << '\n';
-		fs << this->rowDeg << ' ' << this->colDeg;
+		fs << this->degV << ' ' << this->degH;
 	}
 
 	// Returns ' ' if x > 0 and '\n' otherwise
@@ -311,16 +311,16 @@ bool TMesh::meshToFile(const string &path)
 	{
 		fs << '\n';
 
-		// - Horizontal: C + C_deg doubles
+		// - Horizontal: C + deg_H doubles
 		if(this->cols > 0)
 		{
-			for(int i = 0; i < this->cols + this->colDeg; ++i)
+			for(int i = 0; i < this->cols + this->degH; ++i)
 				fs << separator(i) << this->knotsH[i];
 		}
-		// - Vertical: R + R_deg doubles
+		// - Vertical: R + deg_V doubles
 		if(this->rows > 0)
 		{
-			for(int i = 0; i < this->rows + this->rowDeg; ++i)
+			for(int i = 0; i < this->rows + this->degV; ++i)
 				fs << separator(i) << this->knotsV[i];
 		}
 	}
@@ -549,11 +549,11 @@ void TriMeshScene::setScene(const TMesh *T)
 			{
 				const int N = 1000; // fixed for now
 				P.resize(N + 1);
-				double t0 = T->knotsH[T->colDeg - 1];
+				double t0 = T->knotsH[T->degH - 1];
 				double t1 = T->knotsH[T->cols];
 				double dt = (t1 - t0) / N;
 
-				int p = T->colDeg - 1;
+				int p = T->degH - 1;
 				for(int i = 0; i <= N; ++i)
 				{
 					double t = t0 + dt * i;
@@ -562,20 +562,20 @@ void TriMeshScene::setScene(const TMesh *T)
 					updateSegmentIndex(p, T->cols, t, T->knotsH);
 
 					// Collect the initial control points for this segment
-					vector<PyramidNode> baseLayer(T->colDeg + 1);
-					for(int j = 0; j <= T->colDeg; ++j)
+					vector<PyramidNode> baseLayer(T->degH + 1);
+					for(int j = 0; j <= T->degH; ++j)
 					{
 						int r1 = 0;
-						int c1 = j + p - T->colDeg + 1;
+						int c1 = j + p - T->degH + 1;
 						baseLayer[j].point = T->gridPoints[r1][c1]->getCenter();
-						populateKnotLR(baseLayer[j], j + p, T->colDeg, T->knotsH);
+						populateKnotLR(baseLayer[j], j + p, T->degH, T->knotsH);
 					}
 
 					/*
 					* Evaluate at t - run the local de Boor Algorithm on this segment
 					* Also store the index p for segment verification (for visualization)
 					*/
-					P[i] = {localDeBoor(T->colDeg, t, move(baseLayer)), p};
+					P[i] = {localDeBoor(T->degH, t, move(baseLayer)), p};
 				}
 			}
 			if(0) // Use the control points directly
@@ -602,15 +602,15 @@ void TriMeshScene::setScene(const TMesh *T)
 		const int CN = 40;
 		S.resize(RN + 1, VP3(CN + 1));
 
-		double s0 = T->knotsV[T->rowDeg - 1];
+		double s0 = T->knotsV[T->degV - 1];
 		double s1 = T->knotsV[T->rows];
 		double ds = (s1 - s0) / RN;
 
-		double t0 = T->knotsH[T->colDeg - 1];
+		double t0 = T->knotsH[T->degH - 1];
 		double t1 = T->knotsH[T->cols];
 		double dt = (t1 - t0) / CN;
 
-		int rp = T->rowDeg - 1;
+		int rp = T->degV - 1;
 		for(int ri = 0; ri <= RN; ++ri)
 		{
 			double s = s0 + ds * ri;
@@ -618,7 +618,7 @@ void TriMeshScene::setScene(const TMesh *T)
 			// Find the correct segment for this parameter s
 			updateSegmentIndex(rp, T->rows, s, T->knotsV);
 
-			int cp = T->colDeg - 1;
+			int cp = T->degH - 1;
 			for(int ci = 0; ci <= CN; ++ci)
 			{
 				double t = t0 + dt * ci;
@@ -629,26 +629,26 @@ void TriMeshScene::setScene(const TMesh *T)
 				// ** Process vertical (s) then horizontal (t) directions
 
 				// Collect the initial control points for this horizontal segment
-				vector<PyramidNode> pointsH(T->colDeg + 1);
-				for(int c = 0; c <= T->colDeg; ++c)
+				vector<PyramidNode> pointsH(T->degH + 1);
+				for(int c = 0; c <= T->degH; ++c)
 				{
 					// Collect the initial control points for each vertical segment
-					vector<PyramidNode> pointsV(T->rowDeg + 1);
-					const int c1 = c + cp - T->colDeg + 1;
-					for(int r = 0; r <= T->rowDeg; ++r)
+					vector<PyramidNode> pointsV(T->degV + 1);
+					const int c1 = c + cp - T->degH + 1;
+					for(int r = 0; r <= T->degV; ++r)
 					{
-						const int r1 = r + rp - T->rowDeg + 1;
+						const int r1 = r + rp - T->degV + 1;
 						pointsV[r].point = T->gridPoints[r1][c1]->getCenter();
-						populateKnotLR(pointsV[r], r + rp, T->rowDeg, T->knotsV);
+						populateKnotLR(pointsV[r], r + rp, T->degV, T->knotsV);
 					}
 
 					// Run the local de Boor Algorithm on this vertical segment
-					pointsH[c].point = localDeBoor(T->rowDeg, s, move(pointsV));
-					populateKnotLR(pointsH[c], c + cp, T->colDeg, T->knotsH);
+					pointsH[c].point = localDeBoor(T->degV, s, move(pointsV));
+					populateKnotLR(pointsH[c], c + cp, T->degH, T->knotsH);
 				}
 
 				// Run the local de Boor Algorithm on this horizontal segment
-				S[ri][ci] = localDeBoor(T->colDeg, t, move(pointsH));
+				S[ri][ci] = localDeBoor(T->degH, t, move(pointsH));
 			}
 		}
 

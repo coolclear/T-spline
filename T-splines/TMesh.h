@@ -17,7 +17,7 @@ public:
 	const double radius = 0.05;
 	mutex lock; // For allowing only one thread to access the mesh at a time
 	int rows, cols;
-	int rowDeg, colDeg;
+	int degH, degV; // Horizontal: for each row, Vertical: for each column
 	vector<double> knotsH, knotsV;
 	vector<vector<bool>> gridH, gridV;
 	vector<vector<Sphere*>> gridPoints;
