@@ -1,5 +1,3 @@
-Release/
-Release/*
-.vs/
-.vs/*
+Release
+.vs
 T-splines.sdf

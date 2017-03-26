@@ -8,11 +8,6 @@
 
 class TMesh
 {
-private:
-	static inline bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
-	static bool validateKnots(const vector<double> &knots);
-	void freeGridPoints();
-
 public:
 	const double radius = 0.05;
 	mutex lock; // For allowing only one thread to access the mesh at a time
@@ -23,12 +18,17 @@ public:
 	vector<vector<Sphere*>> gridPoints;
 
 
-	TMesh(int r, int c, int rd, int cd, bool autoFill = true);
+	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
 
 	void assign(TMesh &tmesh);
 	bool meshFromFile(const string &path);
 	bool meshToFile(const string &path);
+
+	static bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
+	static bool validateKnots(const vector<double> &knots, int n, int deg);
+	static bool checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg);
+	void freeGridPoints();
 };
 
 class TMeshScene : public SceneInfo

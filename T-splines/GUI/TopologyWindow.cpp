@@ -76,13 +76,22 @@ void TopologyWindow::loadMesh()
 
 	if(_mesh.meshFromFile(filePath))
 	{
+		printf("---------------------------------------------------------\n");
 		printf("Loaded [%s] successfully\n", filePath);
 		printf("Dimensions: %d x %d\n", _mesh.rows, _mesh.cols);
 		printf("Degree: V %d x H %d\n", _mesh.degV, _mesh.degH);
+		printf("\n");
+
+		if(!TMesh::checkDuplicateAtKnotEnds(_mesh.knotsH, _mesh.cols, _mesh.degH))
+			printf("Warning: Horizontal knot values are not repeated at end points\n");
+		if(!TMesh::checkDuplicateAtKnotEnds(_mesh.knotsV, _mesh.rows, _mesh.degV))
+			printf("Warning: Vertical knot values are not repeated at end points\n");
 
 		updateControlPoints();
 		updateSurface();
 	}
+	else
+		printf("Failed to load T-mesh [%s]\n", filePath);
 }
 
 void TopologyWindow::saveMesh()

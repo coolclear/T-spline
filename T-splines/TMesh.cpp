@@ -4,33 +4,55 @@
 #include <fstream>
 
 
-inline bool TMesh::validateDimensionsAndDegrees(int r, int c, int rd, int cd)
+inline bool TMesh::validateDimensionsAndDegrees(int r, int c, int degV, int degH)
 {
 	const int rcLimit = 1e4; // Limit up to 10^4 cells
+	// Check for invalid dimensions
 	if(!(r >= 0 && c >= 0 && r + c >= 1 && r * c <= rcLimit))
 		return false;
-	if((r > 0 && (rd < 1 || rd > r)) || (r == 0 && rd != 0))
+
+	// Degrees: must be 0 if dim = 0, and must be within [1,dim] if dim > 0
+	// Check for invalid vertical degrees (with row numbers)
+	if(!((r > 0 && 1 <= degV && degV <= r) || (r == 0 && degV == 0)))
 		return false;
-	if((c > 0 && (cd < 1 || cd > c)) || (c == 0 && cd != 0))
+
+	// Check for invalid horizontal degrees (with column numbers)
+	if(!((c > 0 && 1 <= degH && degH <= c) || (c == 0 && degH == 0)))
 		return false;
 	return true;
 }
 
-// Knot values must be non-decreasing (sorted)
-bool TMesh::validateKnots(const vector<double> &knots)
+// Knot values must have the right counts and be non-decreasing (sorted)
+bool TMesh::validateKnots(const vector<double> &knots, int n, int deg)
 {
-	if(knots.size() <= 1)
-		return true;
+	if((int)knots.size() != n + deg)
+		return false;
 
-	for(int i = 1; i < (int) knots.size(); ++i)
+	for(int i = 1; i < (int)knots.size(); ++i)
 		if(knots[i-1] > knots[i]) // decreasing -> invalid
 			return false;
 	return true;
 }
 
+/*
+ * Check if the knots at both ends are duplicates
+ * with multiplicities at least the degrees.
+ * The knots, dimension, and degree must be valid.
+ */
+bool TMesh::checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg)
+{
+	if(deg <= 1) // no need to check if empty knots or using linear T-spline
+		return true;
+	else
+	{
+		// Deal with precision errors and assume monotonicity
+		return knots[0] + 1e-9 > knots[deg - 1] && knots[n - deg] + 1e-9 > knots[n - 1];
+	}
+}
+
+// Free sphere objects in the 2D array 'gridPoints'
 void TMesh::freeGridPoints()
 {
-	//	printf("%p freeGridPoints\n", this);
 	for(auto &spheres: gridPoints)
 	{
 		for(auto &s: spheres)
@@ -39,16 +61,17 @@ void TMesh::freeGridPoints()
 			s = NULL;
 		}
 	}
+	gridPoints.clear();
 }
 
 
-TMesh::TMesh(int r, int c, int rd, int cd, bool autoFill)
+TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 {
-	assert(validateDimensionsAndDegrees(r, c, rd, cd));
+	assert(validateDimensionsAndDegrees(r, c, dv, dh));
 	rows = r;
 	cols = c;
-	degV = rd;
-	degH = cd;
+	degV = dv;
+	degH = dh;
 
 	// Assign some uniform knot values
 	if(cols > 0)
@@ -58,7 +81,7 @@ TMesh::TMesh(int r, int c, int rd, int cd, bool autoFill)
 		{
 			for(int i = 0; i < cols + degH; ++i)
 				knotsH[i] = i;
-			assert(validateKnots(knotsH));
+			assert(validateKnots(knotsH, cols, degH));
 		}
 	}
 	if(rows > 0)
@@ -68,7 +91,7 @@ TMesh::TMesh(int r, int c, int rd, int cd, bool autoFill)
 		{
 			for(int i = 0; i < rows + degV; ++i)
 				knotsV[i] = i;
-			assert(validateKnots(knotsV));
+			assert(validateKnots(knotsV, rows, degV));
 		}
 	}
 
@@ -204,11 +227,12 @@ bool TMesh::meshFromFile(const string &path)
 				return false;
 			}
 		}
-		if(!validateKnots(knotsH))
+		if(!validateKnots(T.knotsH, cols1, degH1))
 		{
-			fprintf(stderr, "Horizontal knot values are not non-decreasing\n");
+			fprintf(stderr, "Non-decreasing horizontal knot values or incorrect counts\n");
 			return false;
 		}
+
 		// - Vertical: R + deg_V doubles
 		for(int i = 0; i < rows1 + degV1; ++i)
 		{
@@ -218,9 +242,9 @@ bool TMesh::meshFromFile(const string &path)
 				return false;
 			}
 		}
-		if(!validateKnots(knotsV))
+		if(!validateKnots(T.knotsV, rows1, degV1))
 		{
-			fprintf(stderr, "Vertical knot values are not non-decreasing\n");
+			fprintf(stderr, "Non-decreasing vertical knot values or incorrect counts\n");
 			return false;
 		}
 	}
@@ -249,7 +273,7 @@ bool TMesh::meshFromFile(const string &path)
 	fs >> end;
 	if(end != "END")
 	{
-		fprintf(stderr, "Bad ending format\n");
+		fprintf(stderr, "Bad ending format: missing the END tag\n");
 		return false;
 	}
 
