@@ -79,10 +79,10 @@ public:
 		_fnormals = n;
 	}
 
-	Pt3Array* getPoints() { return _pts; }
-	TriIndArray* getInds() { return _tinds; }
-	Vec3Array* getVNormals() { return _vnormals; }
-	Vec3Array* getFNormals() { return _fnormals; }
+	Pt3Array* getPoints() const { return _pts; }
+	TriIndArray* getInds() const { return _tinds; }
+	Vec3Array* getVNormals() const { return _vnormals; }
+	Vec3Array* getFNormals() const { return _fnormals; }
 
 	// use these delete functions carefully
 	void del() {

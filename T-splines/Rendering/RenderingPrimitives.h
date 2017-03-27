@@ -29,7 +29,7 @@ public:
 		_size = s;
 	}
 
-	int size() { return _size; }
+	int size() const { return _size; }
 
 	void clear() {
 		_size = 0;

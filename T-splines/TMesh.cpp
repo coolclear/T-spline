@@ -484,7 +484,7 @@ static Light* createLight(int id) {
 	// x+,y+,z+,x-,y-,z-
 	const Pt3 P[6] = {Pt3(100,0,0),Pt3(0,100,0),Pt3(0,0,100),Pt3(-100,0,0),Pt3(0,-100,0),Pt3(0,0,-100)};
 	// RGB RGB
-	const Color C[6] = {Color(0.5,0,0),Color(0,0.5,0),Color(0,0,0.5),Color(0.5,0,0),Color(0,0.5,0),Color(0,0,0.5)};
+	const Color C[6] = {Color(1,0,0),Color(0,1,0),Color(0,0,1),Color(1,0,0),Color(0,1,0),Color(0,0,1)};
 
 	pos = P[id];
 	c = C[id];

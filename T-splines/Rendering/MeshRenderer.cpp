@@ -55,24 +55,30 @@ void MeshRenderer::draw()
 		}
 		else // Draw the interpolated surface
 		{
-			TriMesh* m = _scene->getMesh();
+			const TriMesh* m = _scene->getMesh();
 			Pt3Array* pts = m->getPoints();
-			TriIndArray* inds = m->getInds();
+			const TriIndArray* inds = m->getInds();
 			Vec3Array* vnorms = m->getVNormals();
 			Vec3Array* fnorms = m->getFNormals();
 
 			auto normColor = [&](const Pt3 &norm)
 			{
 				double color[3];
+
+				// Scheme 1
+				/*
 				double sum = 0;
 				FOR(i,0,3)
 				{
 					double a = abs(norm[i]);
-					a *= a;
 					sum += color[i] = a;
 				}
-				FOR(i,0,3)
-					color[i] /= sum;
+				FOR(i,0,3) color[i] /= sum;
+				//*/
+
+				// Scheme 2
+				FOR(i,0,3) color[i] = ((norm[i] + 1) * 0.5) * (0.5 * abs(norm[i]) + 0.5);
+
 				glColor3dv(color);
 			};
 
@@ -81,72 +87,65 @@ void MeshRenderer::draw()
 			{
 				glDisable(GL_LIGHTING);
 				glDisable(GL_COLOR_MATERIAL);
-				if(getShadingModel() == SHADE_GOURAUD)
-				{
-					glShadeModel(GL_SMOOTH);
-					glBegin(GL_TRIANGLES);
-					FOR(j,0,inds->size())
-					{
-						TriInd& ti = inds->get(j);
-						FOR(k,0,3)
-						{
-							normColor(vnorms->get(ti[k]));
-							glVertex3dv(&pts->get(ti[k])[0]);
-						}
-					}
-					glEnd();
-				}
-				else
-				{
-					glShadeModel(GL_FLAT);
-					glBegin(GL_TRIANGLES);
-					FOR(j,0,inds->size())
-					{
-						normColor(fnorms->get(j));
-						TriInd& ti = inds->get(j);
-						FOR(k,0,3) glVertex3dv(&pts->get(ti[k])[0]);
-					}
-					glEnd();
-				}
 			}
 			else // Use lighting and material
 			{
 				glEnable(GL_LIGHTING);
 				glEnable(GL_COLOR_MATERIAL);
-				glColor3d(1.2, 1.2, 1.2);
-				if(getShadingModel() == SHADE_GOURAUD)
+				glColor3d(1, 1, 1);
+			}
+
+			if(getShadingModel() == SHADE_GOURAUD)
+			{
+				glShadeModel(GL_SMOOTH);
+				glBegin(GL_TRIANGLES);
+				FOR(j,0,inds->size())
 				{
-					glShadeModel(GL_SMOOTH);
-					glBegin(GL_TRIANGLES);
-					FOR(j,0,inds->size())
+					const TriInd& ti = inds->get(j);
+					const Vec3 &fn = fnorms->get(j);
+					FOR(k,0,3)
 					{
-						TriInd& ti = inds->get(j);
-						FOR(k,0,3)
-						{
-							glNormal3dv(&vnorms->get(ti[k])[0]);
-							glVertex3dv(&pts->get(ti[k])[0]);
-						}
+						const Vec3 vn = vnorms->get(ti[k]);
+						/*
+						 * Don't use the vertex normal if it's too different
+						 * from the face normal.
+						 */
+						const double threshold = 0.7;
+						Vec3 norm = ((vn * fn) > threshold) ? vn : fn;
+						if(useNormal)
+							normColor(norm);
+						else
+							glNormal3dv(&norm[0]);
+
+						glVertex3dv(&pts->get(ti[k])[0]);
 					}
-					glEnd();
 				}
-				else
+				glEnd();
+			}
+			else
+			{
+				glShadeModel(GL_FLAT);
+				glBegin(GL_TRIANGLES);
+				FOR(j,0,inds->size())
 				{
-					glShadeModel(GL_FLAT);
-					glBegin(GL_TRIANGLES);
-					FOR(j,0,inds->size())
-					{
-						glNormal3dv(&fnorms->get(j)[0]);
-						TriInd& ti = inds->get(j);
-						FOR(k,0,3) glVertex3dv(&pts->get(ti[k])[0]);
-					}
-					glEnd();
+					Vec3 fn = fnorms->get(j);
+					if(useNormal)
+						normColor(fn);
+					else
+						glNormal3dv(&fn[0]);
+
+					const TriInd& ti = inds->get(j);
+					FOR(k,0,3) glVertex3dv(&pts->get(ti[k])[0]);
 				}
+				glEnd();
 			}
 
 			// Wireframes
 			if(drawWire)
 			{
 				glDisable(GL_LIGHTING);
+				glDisable(GL_COLOR_MATERIAL);
+				glDisable(GL_CULL_FACE);
 				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 				glLineWidth(1);
@@ -154,7 +153,7 @@ void MeshRenderer::draw()
 				glBegin(GL_TRIANGLES);
 				FOR(j,0,inds->size())
 				{
-					TriInd& ti = inds->get(j);
+					const TriInd& ti = inds->get(j);
 					FOR(k,0,3) glVertex3dv(&pts->get(ti[k])[0]);
 				}
 				glEnd();
