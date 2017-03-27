@@ -218,34 +218,90 @@ bool TMesh::meshFromFile(const string &path)
 
 	// Read knot values (monotonically increasing)
 	{
-		// - Horizontal: C + deg_H doubles
-		for(int i = 0; i < cols1 + degH1; ++i)
+		// - Horizontal: C + deg_H doubles (C - deg_H + 2 in the middle)
 		{
-			if(!(fs >> T.knotsH[i]))
+			int dupBit = -1, lb, ub;
+			fs >> dupBit;
+			if(!fs.good() || dupBit < 0 || dupBit > 1)
 			{
-				fprintf(stderr, "Failed to read horizontal knot values\n");
+				fprintf(stderr, "Bad flag for horizontal knot values\n");
 				return false;
 			}
-		}
-		if(!validateKnots(T.knotsH, cols1, degH1))
-		{
-			fprintf(stderr, "Non-decreasing horizontal knot values or incorrect counts\n");
-			return false;
+
+			if(dupBit == 0) // All knots are provided in the file
+			{
+				lb = 0;
+				ub = cols1 + degH1 - 1;
+			}
+			else // Need to duplicate knots at both ends
+			{
+				lb = degH1 - 1;
+				ub = cols1;
+			}
+
+			for(int i = lb; i <= ub; ++i)
+			{
+				if(!(fs >> T.knotsH[i]))
+				{
+					fprintf(stderr, "Failed to read horizontal knot values\n");
+					return false;
+				}
+			}
+			if(dupBit) // Duplicate knots at ends
+			{
+				for(int i = 0; i < lb; ++i)
+					T.knotsH[i] = T.knotsH[lb];
+				for(int i = ub + 1; i < cols1 + degH1; ++i)
+					T.knotsH[i] = T.knotsH[ub];
+			}
+			if(!validateKnots(T.knotsH, cols1, degH1))
+			{
+				fprintf(stderr, "Non-decreasing horizontal knot values or incorrect counts\n");
+				return false;
+			}
 		}
 
-		// - Vertical: R + deg_V doubles
-		for(int i = 0; i < rows1 + degV1; ++i)
+		// - Vertical: R + deg_V doubles (R - deg_V + 2 in the middle)
 		{
-			if(!(fs >> T.knotsV[i]))
+			int dupBit = -1, lb, ub;
+			fs >> dupBit;
+			if(!fs.good() || dupBit < 0 || dupBit > 1)
 			{
-				fprintf(stderr, "Failed to read vertical knot values\n");
+				fprintf(stderr, "Bad flag for vertical knot values\n");
 				return false;
 			}
-		}
-		if(!validateKnots(T.knotsV, rows1, degV1))
-		{
-			fprintf(stderr, "Non-decreasing vertical knot values or incorrect counts\n");
-			return false;
+
+			if(dupBit == 0) // All knots are provided in the file
+			{
+				lb = 0;
+				ub = rows1 + degV1 - 1;
+			}
+			else // Need to duplicate knots at both ends
+			{
+				lb = degV1 - 1;
+				ub = rows1;
+			}
+
+			for(int i = lb; i <= ub; ++i)
+			{
+				if(!(fs >> T.knotsV[i]))
+				{
+					fprintf(stderr, "Failed to read vertical knot values\n");
+					return false;
+				}
+			}
+			if(dupBit) // Duplicate knots at ends
+			{
+				for(int i = 0; i < lb; ++i)
+					T.knotsV[i] = T.knotsV[lb];
+				for(int i = ub + 1; i < rows1 + degV1; ++i)
+					T.knotsV[i] = T.knotsV[ub];
+			}
+			if(!validateKnots(T.knotsV, rows1, degV1))
+			{
+				fprintf(stderr, "Non-decreasing vertical knot values or incorrect counts\n");
+				return false;
+			}
 		}
 	}
 
@@ -336,16 +392,18 @@ bool TMesh::meshToFile(const string &path)
 		fs << '\n';
 
 		// - Horizontal: C + deg_H doubles
+		fs << "\n0 "; // Provide all by default
 		if(this->cols > 0)
 		{
 			for(int i = 0; i < this->cols + this->degH; ++i)
-				fs << separator(i) << this->knotsH[i];
+				fs << ' ' << this->knotsH[i];
 		}
 		// - Vertical: R + deg_V doubles
+		fs << "\n0 "; // Provide all by default
 		if(this->rows > 0)
 		{
 			for(int i = 0; i < this->rows + this->degV; ++i)
-				fs << separator(i) << this->knotsV[i];
+				fs << ' ' << this->knotsV[i];
 		}
 	}
 

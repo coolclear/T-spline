@@ -9,6 +9,10 @@ Recently, the geometry window and the surface rendering window were separate.
 Now they have been combined into one. Moreover, the surface will be
 automatically refreshed after changes are made to the control points.
 
+There is an option to provide only necessary knots values (in the middle) and
+the program will duplicate the rest at both ends. Use the flag 1 for this
+option (see the file format below).
+
 
 Controls
 --------
@@ -52,11 +56,18 @@ line as long as they follow the correct order ('+' for data, '-' for comments):
   + vertical lines (R x (C+1) boolean values)
 
 - knot values
-  + horizontal values (C + deg_H doubles)
-  + vertical values (R + deg_V doubles)
+  + duplicate flag: dupH (1 boolean value: 0/1)
+  + horizontal values:
+    - dupH == 0: C + deg_H doubles
+    - dupH == 1: C - deg_H + 2 doubles (0 if empty dimension)
+  + duplicate flag: dupV (1 boolean value: 0/1)
+  + vertical values:
+    - dupV == 0: R + deg_V doubles
+    - dupV == 1: R - deg_V + 2 doubles (0 if empty dimension)
   - There will be no knot value for an empty dimension (n + n_deg = 0)
-  - Knot values (for each dimension) must be non-decreasing. E.g., double knots
-    are allowed.
+  - Both duplicate flags are required, even if the dimension is empty.
+  - Knot values (for each dimension) must be non-decreasing. E.g., duplicate
+    knots are allowed.
 
 + complete control points ((R+1) x (C+1) x 3 doubles)
   - The coordinates are (x, y, z) as usual.
