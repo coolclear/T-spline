@@ -32,21 +32,22 @@ const Fl_Color WIN_COLOR = fl_rgb_color(244, 247, 251);
 
 
 namespace StringUtil {
-	double parseDouble(const string& str);
-	int parseInt(const string& str);
+	double parseDouble(const string &str);
+	bool parseDoubles(const string &str, vector<double> &res);
+	int parseInt(const string &str);
 	bool isLetter(char c);
 	bool isNumber(char c);
-	vector<string> split(const string& s, char c);
+	vector<string> split(const string &s, char c);
 }
 using namespace StringUtil;
 
 
 namespace MatrixUtil {
-	void convertMat(const ArcBall::Matrix3f_t& mi, Mat4& mout);
-	void mglLoadMatrix(const Mat4& mat);
-	void mglReadMatrix(GLenum glmat, Mat4& mat);
-	void mLoadMatrix(const Mat4& mat, GLdouble m[16]);
-	void mReadMatrix(GLdouble m[16], Mat4& mat);
+	void convertMat(const ArcBall::Matrix3f_t &mi, Mat4 &mout);
+	void mglLoadMatrix(const Mat4 &mat);
+	void mglReadMatrix(GLenum glmat, Mat4 &mat);
+	void mLoadMatrix(const Mat4 &mat, GLdouble m[16]);
+	void mReadMatrix(GLdouble m[16], Mat4 &mat);
 }
 using namespace MatrixUtil;
 
@@ -57,11 +58,11 @@ namespace Util {
 	double readDouble(istream &stream);
 	int readInt(istream &stream);
 	string readString(istream &stream);
-	void writeVec3(ostream &stream, const Vec3& v);
-	void writePt3(ostream &stream, const Pt3& v);
+	void writeVec3(ostream &stream, const Vec3 &v);
+	void writePt3(ostream &stream, const Pt3 &v);
 	void writeDouble(ostream &stream, double d);
 	void writeInt(ostream &stream, int d);
-	void writeString(ostream &stream, const string& s);
+	void writeString(ostream &stream, const string &s);
 
 	double rand1();
 };

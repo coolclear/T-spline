@@ -24,12 +24,19 @@ protected:
 	TopologyViewer *_viewer;
 	GeometryWindow *_geometry;
 
+	Fl_Group *fileGroup;
 	Button *loadButton;
 	Button *saveButton;
+
+	Fl_Input *knotsHInput;
+	Fl_Input *knotsVInput;
+	Button *knotsHButton;
+	Button *knotsVButton;
 
 public:
 	TopologyWindow(int x, int y, int w, int h, const char* l);
 	~TopologyWindow();
+	void updatePanel();
 	void updateControlPoints();
 	void updateSurface();
 	void loadMesh();
@@ -42,6 +49,11 @@ public:
 	}
 
 protected:
+	static void loadButtonCallback(Fl_Widget* widget, void* userdata);
+	static void saveButtonCallback(Fl_Widget* widget, void* userdata);
+	static void knotsHButtonCallback(Fl_Widget* widget, void* userdata);
+	static void knotsVButtonCallback(Fl_Widget* widget, void* userdata);
+
 	static void exitButtonCb(Fl_Widget* widget, void* win) { exit(0); }
 	static void escapeButtonCb(Fl_Widget* widget, void* win) {}
 };

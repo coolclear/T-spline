@@ -12,6 +12,25 @@ double StringUtil::parseDouble(const string& str) {
 	return ret;
 }
 
+// Parse doubles into vector<double>. Return true if success, false otherwise
+bool StringUtil::parseDoubles(const string &str, vector<double> &res)
+{
+	res.clear();
+	stringstream ss(str);
+	while(true)
+	{
+		double val;
+		if(!(ss >> val)) break;
+		res.push_back(val);
+	}
+	if(!ss.eof()) // parsing failed: some character was unexpected
+	{
+		res.clear();
+		return false;
+	}
+	return true;
+}
+
 int StringUtil::parseInt(const string& str) {
 	int ret;
 	stringstream sst(str);

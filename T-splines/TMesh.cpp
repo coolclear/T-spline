@@ -46,7 +46,7 @@ bool TMesh::checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg
 	else
 	{
 		// Deal with precision errors and assume monotonicity
-		return knots[0] + 1e-9 > knots[deg - 1] && knots[n - deg] + 1e-9 > knots[n - 1];
+		return knots[0] + 1e-9 > knots[deg - 1] && knots[n] + 1e-9 > knots[n + deg - 1];
 	}
 }
 
