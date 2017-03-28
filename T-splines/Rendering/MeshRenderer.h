@@ -15,7 +15,7 @@ public:
 
 	MeshRenderer()
 	{
-		drawWire = true;
+		drawWire = false;
 		useNormal = true;
 		_scene = NULL;
 		_shadingModel = SHADE_FLAT;

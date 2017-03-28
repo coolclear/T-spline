@@ -25,8 +25,6 @@ void TopologyViewer::set2DProjection()
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-
-	glViewport(0, 0, 1, 1);
 }
 
 void TopologyViewer::draw()
@@ -176,11 +174,4 @@ int TopologyViewer::handle(int ev) {
 	else if(ev==FL_KEYUP) {}
 
 	return Fl_Gl_Window::handle(ev);
-}
-
-void TopologyViewer::resize(int x, int y, int width, int height) {
-	make_current();
-	_w = width;
-	_h = height;
-	Fl_Gl_Window::resize(x,y,width,height);
 }

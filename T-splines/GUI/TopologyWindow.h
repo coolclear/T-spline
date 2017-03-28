@@ -39,7 +39,7 @@ public:
 	void updatePanel();
 	void updateControlPoints();
 	void updateSurface();
-	void loadMesh();
+	void loadMesh(char *filePath = NULL);
 	void saveMesh();
 	void setup(GeometryWindow *geometry)
 	{

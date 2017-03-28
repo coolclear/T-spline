@@ -437,11 +437,16 @@ bool TMesh::meshToFile(const string &path)
 void TMeshScene::setup(TMesh *tmesh)
 {
 	gridSpheres = tmesh->gridPoints;
+	gridH = tmesh->gridH;
+	gridV = tmesh->gridV;
 	for(int r = 0; r <= tmesh->rows; ++r)
 	{
 		for(int c = 0; c <= tmesh->cols; ++c)
 		{
 			bool doDraw = false;
+
+			// TODO: determine which points should or should not be used
+			doDraw = true; // will draw every point for now
 
 			if(r == 0 || r == tmesh->rows || c == 0 || c == tmesh->cols)
 				doDraw = true; // always draw boundary points (for now)

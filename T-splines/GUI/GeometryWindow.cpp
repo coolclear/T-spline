@@ -95,7 +95,7 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 void GeometryWindow::setupSurface(TMesh *tmesh)
 {
 	static TMesh *lastT = NULL;
-	if(tmesh != NULL)
+	if(tmesh != NULL) // update to the new non-null mesh object
 		lastT = tmesh;
 
 	sceneLock.lock();
@@ -329,6 +329,7 @@ int GeometryWindow::handle(int ev)
 				{
 					for(const auto &sphere: row)
 					{
+						if(sphere == NULL) continue;
 						sphere->accept(_intersector, &data);
 						if(data.hit && t > data.t) {
 							t = data.t;

@@ -50,6 +50,7 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	this->callback(escapeButtonCb, this);
 	this->color(WIN_COLOR);
 
+	loadMesh("files/default.txt");
 	updatePanel();
 }
 
@@ -102,9 +103,12 @@ void TopologyWindow::updateSurface()
 		_geometry->setupSurface(&_mesh);
 }
 
-void TopologyWindow::loadMesh()
+void TopologyWindow::loadMesh(char *filePath)
 {
-	char* filePath = fl_file_chooser("Open T-Mesh", ".txt (*.txt)", "./files/", 0);
+	// If filePath is not supplied, then we'll use the file chooser
+	if(!filePath)
+		filePath = fl_file_chooser("Open T-Mesh", ".txt (*.txt)", "./files/", 0);
+
 	if(!filePath)
 	{
 		fprintf(stderr, "Canceled loading T-mesh\n");

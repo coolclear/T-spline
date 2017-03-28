@@ -18,7 +18,6 @@ public:
 	~TopologyViewer();
 	void draw();
 	int handle(int flag);
-	void resize(int x, int y, int width, int height);
 
 	inline int getWidth() { return _w; }
 	inline int getHeight() { return _h; }

@@ -94,7 +94,6 @@ void ZBufferRenderer::draw()
 		int cols = spheres[0].size();
 
 		// Draw H-links
-		glColor3d(0, 0.4, 0.8); // greenish blue
 		for(int r = 0; r < rows; ++r)
 		{
 			Sphere *last = NULL, *curr;
@@ -104,6 +103,10 @@ void ZBufferRenderer::draw()
 					continue;
 				if(last)
 				{
+					if(_scene->getGridH()[r][c-1])
+						glColor3d(0, 0.4, 0.8); // greenish blue
+					else
+						glColor3d(0, 0.15, 0.3); // dark greenish blue
 					glVertex3dv(&last->getCenter()[0]);
 					glVertex3dv(&curr->getCenter()[0]);
 				}
@@ -112,7 +115,6 @@ void ZBufferRenderer::draw()
 		}
 
 		// Draw V-links
-		glColor3d(0.8, 0.4, 0); // orange
 		for(int c = 0; c < cols; ++c)
 		{
 			Sphere *last = NULL, *curr;
@@ -122,6 +124,10 @@ void ZBufferRenderer::draw()
 					continue;
 				if(last)
 				{
+					if(_scene->getGridV()[r-1][c])
+						glColor3d(0.8, 0.4, 0); // orange
+					else
+						glColor3d(0.2, 0.1, 0); // dark orange
 					glVertex3dv(&last->getCenter()[0]);
 					glVertex3dv(&curr->getCenter()[0]);
 				}

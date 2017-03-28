@@ -35,12 +35,15 @@ class TMeshScene : public SceneInfo
 {
 protected:
 	vector<vector<Sphere*>> gridSpheres;
+	vector<vector<bool>> gridH, gridV;
 
 public:
 	TMeshScene() {}
 
 	void setup(TMesh *tmesh);
 	const vector<vector<Sphere*>> &getSpheres() { return gridSpheres; }
+	const vector<vector<bool>> &getGridH() { return gridH; }
+	const vector<vector<bool>> &getGridV() { return gridV; }
 };
 
 class TriMesh {
