@@ -10,7 +10,6 @@
 
 using namespace std;
 
-// F9
 #ifndef DELETE_OPS
 #define DELETE_OPS
 #define CLEAN_DELETE(p) if(p) delete p

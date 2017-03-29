@@ -106,7 +106,7 @@ void ZBufferRenderer::draw()
 					if(_scene->getGridH()[r][c-1])
 						glColor3d(0, 0.4, 0.8); // greenish blue
 					else
-						glColor3d(0, 0.15, 0.3); // dark greenish blue
+						glColor3d(0, 0.1, 0.2); // dark blue
 					glVertex3dv(&last->getCenter()[0]);
 					glVertex3dv(&curr->getCenter()[0]);
 				}
@@ -127,7 +127,7 @@ void ZBufferRenderer::draw()
 					if(_scene->getGridV()[r-1][c])
 						glColor3d(0.8, 0.4, 0); // orange
 					else
-						glColor3d(0.2, 0.1, 0); // dark orange
+						glColor3d(0.2, 0.1, 0); // brown
 					glVertex3dv(&last->getCenter()[0]);
 					glVertex3dv(&curr->getCenter()[0]);
 				}

@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "TopologyWindow.h"
+#include "GUI/TopologyWindow.h"
 #include "Common/Common.h"
 
 #include <iostream>
@@ -22,6 +22,7 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 		_viewer->color(FL_BLACK);
 		_viewer->end();
 		_viewer->setMesh(&_mesh);
+		_viewer->setParent(this);
 
 		fileGroup = new Fl_Group(310, 20, 150, 40, "T-Mesh File");
 		fileGroup->color(WIN_COLOR);

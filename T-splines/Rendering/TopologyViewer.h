@@ -8,10 +8,12 @@
 
 using namespace std;
 
+class TopologyWindow;
 class TopologyViewer : public Fl_Gl_Window{
 protected:
 	int _w, _h;
 	TMesh *_mesh;
+	TopologyWindow *_parent;
 
 public:
 	TopologyViewer(int x, int y, int w, int h, const char* l=0);
@@ -26,6 +28,7 @@ public:
 	void set2DProjection();
 
 	void setMesh(TMesh *mesh) { _mesh = mesh; }
+	void setParent(TopologyWindow *tw) { _parent = tw; }
 
 	static void updateCb(void* userdata) {
 		TopologyViewer* viewer = (TopologyViewer*) userdata;
