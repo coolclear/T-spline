@@ -42,7 +42,7 @@ public:
 
 	void add(const T& p) {
 		if(_size >= _cap)
-			recap(max<int>(_size + 1, _cap * 1.5));
+			recap(max<int>(_size + 1, int(_cap * 1.5)));
 		_data[_size++] = p;
 	}
 
@@ -81,19 +81,19 @@ typedef DynArray<TriInd> TriIndArray;
 class Material {
 protected:
 	Color _ambient, _diffuse, _specular;
-	float _specExp;
+	double _specExp;
 public:
 	inline Material() {};
 
 	inline const Color& getAmbient() const { return _ambient; }
 	inline const Color& getDiffuse() const { return _diffuse; }
 	inline const Color& getSpecular() const { return _specular; }
-	inline float getSpecExponent() const { return _specExp; }
+	inline double getSpecExponent() const { return _specExp; }
 
 	inline void setAmbient(const Color& amb) { _ambient = amb; }
 	inline void setDiffuse(const Color& diff) { _diffuse = diff; }
 	inline void setSpecular(const Color& spec) { _specular = spec; }
-	inline void setSpecExponent(float s) { _specExp = s; }
+	inline void setSpecExponent(double s) { _specExp = s; }
 };
 
 class Light {

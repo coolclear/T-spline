@@ -7,8 +7,8 @@ double GeometryUtils::pointRayClosest(const Pt3& pt, const Ray& ray) {
 }
 
 double GeometryUtils::pointRayDist(const Pt3& pt, const Ray& ray) {
-	float qdotv = (pt-ray.p) * ray.dir;
-	float t = (qdotv) / (ray.dir*ray.dir);
+	double qdotv = (pt-ray.p) * ray.dir;
+	double t = (qdotv) / (ray.dir*ray.dir);
 	Pt3 np = ray.at(t);
 	return mag(np-pt);
 }

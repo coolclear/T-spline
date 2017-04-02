@@ -49,22 +49,20 @@ bool StringUtil::isNumber(char c) {
 vector<string> StringUtil::split(const string& s, char c) {
 	vector<string> ret;
 	string cur = "";
-	for(int j = 0;j<s.length();j++) {
-		if(s[j] == c) {
+	FOR(i,0,s.length()) {
+		if(s[i] == c) {
 			ret.push_back(cur);
 			cur = "";
-		}
-		else {
-			cur += s[j];
-		}
+		} else
+			cur += s[i];
 	}
 	if(cur.length() > 0)
 		ret.push_back(cur);
 
 	vector<string> ret2;
-	for(int j = 0; j < ret.size(); j++)
-		if(ret[j].length() > 0)
-			ret2.push_back(ret[j]);
+	FOR(i,0,ret.size())
+		if(ret[i].length() > 0)
+			ret2.push_back(ret[i]);
 
 	return move(ret2);
 }
@@ -91,7 +89,7 @@ void MatrixUtil::convertMat(const ArcBall::Matrix3f_t& mi, Mat4& mout) {
 void MatrixUtil::mglLoadMatrix(const Mat4& mat) {
 	GLfloat m[16];
 	for(int i = 0; i < 16; i++)
-		m[i] = mat[i>>2][i&3];
+		m[i] = (GLfloat) mat[i>>2][i&3];
 	glLoadMatrixf(m);
 }
 

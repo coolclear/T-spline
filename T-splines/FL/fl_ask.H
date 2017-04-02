@@ -1,29 +1,24 @@
 //
-// "$Id: fl_ask.H 4279 2005-04-13 19:35:28Z mike $"
+// "$Id: fl_ask.H 10501 2014-12-20 15:00:27Z manolo $"
 //
 // Standard dialog header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2005 by Bill Spitzak and others.
+// Copyright 1998-2011 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
+
+/** \file fl_ask.H
+ API for common dialogs.
+ */
 
 #ifndef fl_ask_H
 #  define fl_ask_H
@@ -32,20 +27,21 @@
 
 class Fl_Widget;
 
-enum {
-  FL_BEEP_DEFAULT = 0,
-  FL_BEEP_MESSAGE,
-  FL_BEEP_ERROR,
-  FL_BEEP_QUESTION,
-  FL_BEEP_PASSWORD,
-  FL_BEEP_NOTIFICATION
+/** Different system beeps available. 
+ \sa fl_beep(int) */
+enum Fl_Beep {
+  FL_BEEP_DEFAULT = 0,  ///< Default beep.
+  FL_BEEP_MESSAGE,  ///< Message beep.
+  FL_BEEP_ERROR,  ///< Error beep.
+  FL_BEEP_QUESTION,  ///< Question beep.
+  FL_BEEP_PASSWORD,  ///< Password beep.
+  FL_BEEP_NOTIFICATION  ///< Notification beep.
 };
 
 #  ifdef __GNUC__
+/* the GNUC-specific attribute appearing below in prototypes with a variable list of arguments
+ helps detection of mismatches between format string and argument list at compilation time */
 #    define __fl_attr(x) __attribute__ (x)
-#    if __GNUC__ < 3
-#      define __deprecated__
-#    endif // __GNUC__ < 3
 #  else
 #    define __fl_attr(x)
 #  endif // __GNUC__
@@ -63,9 +59,15 @@ FL_EXPORT const char *fl_password(const char *label, const char *deflt = 0, ...)
 
 FL_EXPORT Fl_Widget *fl_message_icon();
 extern FL_EXPORT Fl_Font fl_message_font_;
-extern FL_EXPORT unsigned char fl_message_size_;
-inline void fl_message_font(unsigned char f,unsigned char s) {
-  fl_message_font_ = (Fl_Font)f; fl_message_size_ = s;}
+extern FL_EXPORT Fl_Fontsize fl_message_size_;
+inline void fl_message_font(Fl_Font f, Fl_Fontsize s) {
+  fl_message_font_ = f; fl_message_size_ = s;}
+
+FL_EXPORT void fl_message_hotspot(int enable);
+FL_EXPORT int fl_message_hotspot(void);
+
+FL_EXPORT void fl_message_title(const char *title);
+FL_EXPORT void fl_message_title_default(const char *title);
 
 // pointers you can use to change FLTK to a foreign language:
 extern FL_EXPORT const char* fl_no;
@@ -73,9 +75,8 @@ extern FL_EXPORT const char* fl_yes;
 extern FL_EXPORT const char* fl_ok;
 extern FL_EXPORT const char* fl_cancel;
 extern FL_EXPORT const char* fl_close;
-
 #endif // !fl_ask_H
 
 //
-// End of "$Id: fl_ask.H 4279 2005-04-13 19:35:28Z mike $".
+// End of "$Id: fl_ask.H 10501 2014-12-20 15:00:27Z manolo $".
 //

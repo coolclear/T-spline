@@ -52,8 +52,9 @@ line as long as they follow the correct order ('+' for data, '-' for comments):
     If the dimension = n, the degree must be between 1 and n.
 
 - grid line information
-  + horizontal lines ((R+1) x C boolean values)
-  + vertical lines (R x (C+1) boolean values)
+  + horizontal lines ((R-1) x C boolean values)
+  + vertical lines (R x (C-1) boolean values)
+  - The lines on the boundary are turned on by default and need not be input.
 
 - knot values
   + duplicate flag: dupH (1 boolean value: 0/1)

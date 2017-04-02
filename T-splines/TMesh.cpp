@@ -6,7 +6,7 @@
 
 inline bool TMesh::validateDimensionsAndDegrees(int r, int c, int degV, int degH)
 {
-	const int rcLimit = 1e4; // Limit up to 10^4 cells
+	const int rcLimit = 10000; // Limit up to 10^4 cells
 	// Check for invalid dimensions
 	if(!(r >= 0 && c >= 0 && r + c >= 1 && r * c <= rcLimit))
 		return false;
@@ -184,8 +184,8 @@ bool TMesh::meshFromFile(const string &path)
 
 	// Read grid information
 	{
-		// - Horizontal: (R+1) x C bools
-		for(int r = 0; r <= rows1; ++r)
+		// - Horizontal: (R-1) x C bools
+		for(int r = 1; r < rows1; ++r) // boundary H-lines are 1 by default
 		{
 			for(int c = 0; c < cols1; ++c)
 			{
@@ -199,10 +199,10 @@ bool TMesh::meshFromFile(const string &path)
 				T.gridH[r][c] = bit;
 			}
 		}
-		// - Vertical: R x (C+1) bools
+		// - Vertical: R x (C-1) bools
 		for(int r = 0; r < rows1; ++r)
 		{
-			for(int c = 0; c <= cols1; ++c)
+			for(int c = 1; c < cols1; ++c) // boundary V-lines are 1 by default
 			{
 				int bit = -1;
 				fs >> bit;
@@ -367,21 +367,21 @@ bool TMesh::meshToFile(const string &path)
 
 	// Save grid information
 	{
-		// - Horizontal: (R+1) x C bools
+		// - Horizontal: (R-1) x C bools
 		if(this->cols > 0)
 		{
 			fs << '\n';
-			for(int r = 0; r <= this->rows; ++r)
+			for(int r = 1; r < this->rows; ++r)
 				for(int c = 0; c < this->cols; ++c)
 					fs << separator(c) << (int)this->gridH[r][c];
 		}
-		// - Vertical: R x (C+1) bools
+		// - Vertical: R x (C-1) bools
 		if(this->rows > 0)
 		{
 			fs << '\n';
 			for(int r = 0; r < this->rows; ++r)
-				for(int c = 0; c <= this->cols; ++c)
-					fs << separator(c) << (int)this->gridV[r][c];
+				for(int c = 1; c < this->cols; ++c)
+					fs << separator(c-1) << (int)this->gridV[r][c];
 		}
 	}
 

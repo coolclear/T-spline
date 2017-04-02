@@ -230,8 +230,8 @@ void ZBufferVisitor::visit(Sphere* sphere, void* ret) {
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	Pt3 c = sphere->getCenter();
-	glTranslatef(c[0], c[1], c[2]);
-	float r = sphere->getRadius();
+	glTranslated(c[0], c[1], c[2]);
+	double r = sphere->getRadius();
 	gluSphere(_quadric, r, 50, 50);
 	glPopMatrix();
 }
@@ -259,7 +259,7 @@ void ZBufferVisitor::visit(Operator* op, void* ret) {
 	glDisable(GL_CULL_FACE);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
-	glTranslatef(center[0], center[1], center[2]);
+	glTranslated(center[0], center[1], center[2]);
 
 	if(_opMode & OP_MODE_TRANSLATE) {
 		glColor3f(.7f, .7f, .7f);

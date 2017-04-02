@@ -1,5 +1,5 @@
 //
-// "$Id$"
+// "$Id: Fl_Input_Choice.H 10513 2015-01-10 22:05:15Z greg.ercolano $"
 //
 // An input/chooser widget.
 //            ______________  ____
@@ -7,28 +7,22 @@
 //           | input area   || \/ |
 //           |______________||____|
 //
-// Copyright 1998-2005 by Bill Spitzak and others.
+// Copyright 1998-2010 by Bill Spitzak and others.
 // Copyright 2004 by Greg Ercolano.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
+
+/* \file
+   Fl_Input_Choice widget . */
 
 #ifndef Fl_Input_Choice_H
 #define Fl_Input_Choice_H
@@ -40,7 +34,65 @@
 #include <FL/fl_draw.H>
 #include <string.h>
 
-class Fl_Input_Choice : public Fl_Group {
+/**
+  A combination of the input widget and a menu button.
+
+  \image html input_choice.jpg
+  \image latex input_choice.jpg "Fl_Input_Choice widget" width=6cm
+
+  The user can either type into the input area, or use the
+  menu button chooser on the right to choose an item which loads
+  the input area with the selected text.
+
+  The application can directly access both the internal Fl_Input 
+  and Fl_Menu_Button widgets respectively using the input() and menubutton()
+  accessor methods.
+
+  The default behavior is to invoke the Fl_Input_Choice::callback()
+  if the user changes the input field's contents, either by typing,
+  pasting, or clicking a different item in the choice menu.
+  
+  The callback can determine if an item was picked vs. typing
+  into the input field by checking the value of menubutton()->changed(),
+  which will be:
+
+      - 1: the user picked a different item in the choice menu
+      - 0: the user typed or pasted directly into the input field
+
+  Example use:
+  \code
+  #include <stdio.h>
+  #include <FL/Fl.H>
+  #include <FL/Fl_Double_Window.H>
+  #include <FL/Fl_Input_Choice.H>
+  void choice_cb(Fl_Widget *w, void *userdata) {
+    // Show info about the picked item
+    Fl_Input_Choice *choice = (Fl_Input_Choice*)w;
+    const Fl_Menu_Item *item = choice->menubutton()->mvalue();
+    printf("*** Choice Callback:\n");
+    printf("    item label()='%s'\n", item ? item->label() : "(No item)");
+    printf("    item value()=%d\n", choice->menubutton()->value());
+    printf("    input value()='%s'\n", choice->input()->value());
+    printf("    The user %s\n", choice->menubutton()->changed()
+                                    ? "picked a menu item"
+                                    : "typed text");
+  }
+  int main() {
+    Fl_Double_Window win(200,100,"Input Choice");
+    win.begin();
+      Fl_Input_Choice choice(10,10,100,30);
+      choice.callback(choice_cb, 0);
+      choice.add("Red");
+      choice.add("Orange");
+      choice.add("Yellow");
+      //choice.value("Red");    // uncomment to make "Red" default
+    win.end();
+    win.show();
+    return Fl::run();
+  }
+  \endcode
+*/
+class FL_EXPORT Fl_Input_Choice : public Fl_Group {
   // Private class to handle slightly 'special' behavior of menu button
   class InputMenuButton : public Fl_Menu_Button {
     void draw() {
@@ -51,15 +103,17 @@ class Fl_Input_Choice : public Fl_Group {
       if (Fl::focus() == this) draw_focus();
     }
   public:
-    InputMenuButton(int x,int y,int w,int h,const char*l=0) : 
-	Fl_Menu_Button(x,y,w,h,l) { box(FL_UP_BOX); }
+    InputMenuButton(int X,int Y,int W,int H,const char*L=0) : 
+	Fl_Menu_Button(X, Y, W, H, L) { box(FL_UP_BOX); }
   };
 
   Fl_Input *inp_;
   InputMenuButton *menu_;
 
+  // note: this is used by the Fl_Input_Choice ctor defined in Fl_Group.
   static void menu_cb(Fl_Widget*, void *data) { 
     Fl_Input_Choice *o=(Fl_Input_Choice *)data;
+    Fl_Widget_Tracker wp(o);
     const Fl_Menu_Item *item = o->menubutton()->mvalue();
     if (item && item->flags & (FL_SUBMENU|FL_SUBMENU_POINTER)) return;	// ignore submenus
     if (!strcmp(o->inp_->value(), o->menu_->text()))
@@ -76,6 +130,8 @@ class Fl_Input_Choice : public Fl_Group {
       if (o->when() & (FL_WHEN_CHANGED|FL_WHEN_RELEASE))
 	o->do_callback();
     }
+    
+    if (wp.deleted()) return;
 
     if (o->callback() != default_callback)
     {
@@ -84,8 +140,10 @@ class Fl_Input_Choice : public Fl_Group {
     }
   }
 
+  // note: this is used by the Fl_Input_Choice ctor defined in Fl_Group.
   static void inp_cb(Fl_Widget*, void *data) { 
     Fl_Input_Choice *o=(Fl_Input_Choice *)data;
+    Fl_Widget_Tracker wp(o);
     if (o->inp_->changed()) {
       o->Fl_Widget::set_changed();
       if (o->when() & (FL_WHEN_CHANGED|FL_WHEN_RELEASE))
@@ -95,6 +153,8 @@ class Fl_Input_Choice : public Fl_Group {
       if (o->when() & FL_WHEN_NOT_CHANGED)
 	o->do_callback();
     }
+    
+    if (wp.deleted()) return;
 
     if (o->callback() != default_callback)
       o->Fl_Widget::clear_changed();
@@ -112,88 +172,97 @@ class Fl_Input_Choice : public Fl_Group {
   inline int menu_h() { return(h() - Fl::box_dh(box())); }
 
 public:
-  Fl_Input_Choice (int x,int y,int w,int h,const char*l=0) : Fl_Group(x,y,w,h,l) {
-    Fl_Group::box(FL_DOWN_BOX);
-    align(FL_ALIGN_LEFT);				// default like Fl_Input
-    inp_ = new Fl_Input(inp_x(), inp_y(),
-			inp_w(), inp_h());
-    inp_->callback(inp_cb, (void*)this);
-    inp_->box(FL_FLAT_BOX);		// cosmetic
-    inp_->when(FL_WHEN_CHANGED|FL_WHEN_NOT_CHANGED);
-    menu_ = new InputMenuButton(menu_x(), menu_y(),
-				menu_w(), menu_h());
-    menu_->callback(menu_cb, (void*)this);
-    menu_->box(FL_FLAT_BOX);				// cosmetic
-    end();
-  }
-  void add(const char *s) {
-    menu_->add(s);
-  }
-  int changed() const { 
-    return inp_->changed() | Fl_Widget::changed();
-  }
+  /**
+    Creates a new Fl_Input_Choice widget using the given position, size,
+    and label string.
+    Inherited destructor destroys the widget and any values associated with it.
+  */
+  Fl_Input_Choice(int X,int Y,int W,int H,const char*L=0);
+  
+  /** Adds an item to the menu.
+   You can access the more complex Fl_Menu_Button::add() methods 
+   (setting callbacks, userdata, etc), via menubutton(). Example:
+   \code
+   Fl_Input_Choice *choice = new Fl_Input_Choice(100,10,120,25,"Fonts");
+   Fl_Menu_Button *mb = choice->menubutton();             // use Fl_Input_Choice's Fl_Menu_Button
+   mb->add("Helvetica", 0, MyFont_CB,     (void*)mydata); // use Fl_Menu_Button's add() methods
+   mb->add("Courier",   0, MyFont_CB,     (void*)mydata);
+   mb->add("More..",    0, FontDialog_CB, (void*)mydata);
+   \endcode
+   */
+  void add(const char *s) { menu_->add(s);  }
+  /** Returns the combined changed() state of the input and menu button widget. */
+  int changed() const { return inp_->changed() | Fl_Widget::changed(); }
+  /** Clears the changed() state of both input and menu button widgets. */
   void clear_changed() { 
     inp_->clear_changed();
     Fl_Widget::clear_changed();
   }
+  /** Sets the changed() state of both input and menu button widgets
+   to the specfied value.*/
   void set_changed() { 
     inp_->set_changed();
     // no need to call Fl_Widget::set_changed()
   }
-  void clear() {
-    menu_->clear();
-  }
-  Fl_Boxtype down_box() const {
-    return (menu_->down_box());
-  }
-  void down_box(Fl_Boxtype b) {
-    menu_->down_box(b);
-  }
-  const Fl_Menu_Item *menu() {
-    return (menu_->menu());
-  }
-  void menu(const Fl_Menu_Item *m) {
-    menu_->menu(m);
-  }
+  /** Removes all items from the menu. */
+  void clear() { menu_->clear(); }
+  /** Gets the box type of the menu button */
+  Fl_Boxtype down_box() const { return (menu_->down_box()); }
+  /** Sets the box type of the menu button */
+  void down_box(Fl_Boxtype b) { menu_->down_box(b); }
+  /** Gets the Fl_Menu_Item array used for the menu. */
+  const Fl_Menu_Item *menu() { return (menu_->menu()); }
+  /** Sets the Fl_Menu_Item array used for the menu. */
+  void menu(const Fl_Menu_Item *m) { menu_->menu(m); }
   void resize(int X, int Y, int W, int H) {
     Fl_Group::resize(X,Y,W,H);
     inp_->resize(inp_x(), inp_y(), inp_w(), inp_h());
     menu_->resize(menu_x(), menu_y(), menu_w(), menu_h());
   }
-  Fl_Color textcolor() const {
-    return (inp_->textcolor());
-  }
-  void textcolor(Fl_Color c) {
-    inp_->textcolor(c);
-  }
-  uchar textfont() const {
-    return (inp_->textfont());
-  }
-  void textfont(uchar f) {
-    inp_->textfont(f);
-  }
-  uchar textsize() const {
-    return (inp_->textsize());
-  }
-  void textsize(uchar s) {
-    inp_->textsize(s);
-  }
-  const char* value() const {
-    return (inp_->value());
-  }
-  void value(const char *val) {
-    inp_->value(val);
-  }
+  /// Gets the Fl_Input text field's text color.
+  Fl_Color textcolor() const { return (inp_->textcolor());}
+  /// Sets the Fl_Input text field's text color to \p c.
+  void textcolor(Fl_Color c) { inp_->textcolor(c);}
+  /// Gets the Fl_Input text field's font style.
+  Fl_Font textfont() const { return (inp_->textfont());}
+  /// Sets the Fl_Input text field's font style to \p f.
+  void textfont(Fl_Font f) { inp_->textfont(f);}
+  /// Gets the Fl_Input text field's font size
+  Fl_Fontsize textsize() const { return (inp_->textsize()); }
+  /// Sets the Fl_Input text field's font size to \p s.
+  void textsize(Fl_Fontsize s) { inp_->textsize(s); }
+  /// Returns the Fl_Input text field's current contents.
+  const char* value() const { return (inp_->value()); }
+  /** Sets the Fl_Input text field's contents to \p val.
+   Does not affect the menu selection.*/
+  void value(const char *val) { inp_->value(val); }
+  /** Chooses item# \p val in the menu, and sets the Fl_Input text field
+   to that value. Any previous text is cleared.*/
   void value(int val) {
     menu_->value(val);
     inp_->value(menu_->text(val));
   }
+  /** Returns a pointer to the internal Fl_Menu_Button widget.
+   This can be used to access any of the methods of the menu button, e.g.
+   \code
+   Fl_Input_Choice *choice = new Fl_Input_Choice(100,10,120,25,"Choice:");
+   [..]
+   // Print all the items in the choice menu
+   for ( int t=0; t<choice->menubutton()->size(); t++ ) {
+       const Fl_Menu_Item &item = choice->menubutton()->menu()[t];
+       printf("item %d -- label=%s\n", t, item.label() ? item.label() : "(Null)");
+   }
+   \endcode
+  */
   Fl_Menu_Button *menubutton() { return menu_; }
+  /** Returns a pointer to the internal Fl_Input widget.
+   This can be used to directly access all of the Fl_Input widget's
+   methods.*/
   Fl_Input *input() { return inp_; }
 };
 
 #endif // !Fl_Input_Choice_H
 
 //
-// End of "$Id$".
+// End of "$Id: Fl_Input_Choice.H 10513 2015-01-10 22:05:15Z greg.ercolano $".
 //

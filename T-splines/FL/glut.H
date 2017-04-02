@@ -1,24 +1,15 @@
 //
-// "$Id: glut.H 5889 2007-06-07 17:28:43Z matt $"
+// "$Id: glut.H 10665 2015-04-03 11:04:43Z AlbrechtS $"
 //
 // GLUT emulation header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2007 by Bill Spitzak and others.
+// Copyright 1998-2015 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -42,13 +33,14 @@
 
 #  include "gl.h"
 
-////////////////////////////////////////////////////////////////
-// GLUT is emulated using this window class and these static variables
-// (plus several more static variables hidden in glut_compatability.cxx):
 
 #  include "Fl.H"
 #  include "Fl_Gl_Window.H"
 
+/** 
+  GLUT is emulated using this window class and these static variables
+  (plus several more static variables hidden in glut_compatability.cxx):
+*/
 class FL_EXPORT Fl_Glut_Window : public Fl_Gl_Window {
   void _init();
   int mouse_down;
@@ -237,11 +229,10 @@ enum {GLUT_LEFT, GLUT_ENTERED};
 inline void glutVisibilityFunc(void (*f)(int s)) {glut_window->visibility=f;}
 enum {GLUT_NOT_VISIBLE, GLUT_VISIBLE};
 
-inline void glutIdleFunc(void (*f)()) {Fl::set_idle(f);}
+FL_EXPORT void glutIdleFunc(void (*f)());
 
-// Warning: this cast may not work on all machines:
 inline void glutTimerFunc(unsigned int msec, void (*f)(int), int value) {
-  Fl::add_timeout(msec*.001, (void (*)(void *))f, (void *)value);
+  Fl::add_timeout(msec*.001, (void (*)(void *))f, (void *)(fl_intptr_t)value);
 }
 
 inline void glutMenuStateFunc(void (*f)(int state)) {
@@ -326,12 +317,12 @@ enum {
   GLUT_INIT_WINDOW_HEIGHT,
   GLUT_INIT_DISPLAY_MODE,
   GLUT_WINDOW_BUFFER_SIZE,
-  GLUT_VERSION,
+  GLUT_VERSION
 //GLUT_WINDOW_NUM_CHILDREN,
 //GLUT_WINDOW_CURSOR,
 //GLUT_SCREEN_WIDTH_MM,
 //GLUT_SCREEN_HEIGHT_MM,
-  GLUT_ELAPSED_TIME
+//GLUT_ELAPSED_TIME,
 };
 
 #  define GLUT_WINDOW_STENCIL_SIZE	GL_STENCIL_BITS
@@ -406,8 +397,11 @@ FL_EXPORT GLUTproc glutGetProcAddress(const char *procName);
 
 //inline void glutVideoPan(int x, int y, int width, int height);
 
-// Font argument must be a void* for compatability, so...
-extern FL_EXPORT struct Fl_Glut_Bitmap_Font {uchar font; int size;}
+// Font argument must be a void* for compatibility, so...
+/** fltk glut font/size attributes used in the glutXXX functions */
+struct Fl_Glut_Bitmap_Font {Fl_Font font; Fl_Fontsize size;};
+
+extern FL_EXPORT struct Fl_Glut_Bitmap_Font
   glutBitmap9By15, glutBitmap8By13, glutBitmapTimesRoman10,
   glutBitmapTimesRoman24, glutBitmapHelvetica10, glutBitmapHelvetica12,
   glutBitmapHelvetica18;
@@ -483,5 +477,5 @@ FL_EXPORT void glutSolidIcosahedron();
 #endif // !Fl_glut_H
 
 //
-// End of "$Id: glut.H 5889 2007-06-07 17:28:43Z matt $".
+// End of "$Id: glut.H 10665 2015-04-03 11:04:43Z AlbrechtS $".
 //

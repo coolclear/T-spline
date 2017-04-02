@@ -9,7 +9,7 @@ static int highlightDir = 0;
 static int highlightRow = 0;
 static int highlightCol = 0;
 
-static const double canvasMargin = 0.05;
+static const double canvasMargin = 0.02;
 static const double canvasLen = 1 - canvasMargin * 2;
 
 TopologyViewer::TopologyViewer(int x, int y, int w, int h, const char* l)
@@ -175,25 +175,27 @@ int TopologyViewer::handle(int ev)
 			Pt3 cursorPoint = win2Screen(Fl::event_x(), Fl::event_y());
 			double cursorRow = _mesh->rows * (cursorPoint[1] - canvasMargin) / canvasLen;
 			double cursorCol = _mesh->cols * (cursorPoint[0] - canvasMargin) / canvasLen;
-			int nearestRow = round(cursorRow);
-			int nearestCol = round(cursorCol);
-			double rowY = (canvasLen * nearestRow) / _mesh->rows + canvasMargin;
-			double rowX = (canvasLen * nearestCol) / _mesh->cols + canvasMargin;
+			int roundedRow = (int) round(cursorRow);
+			int roundedCol = (int) round(cursorCol);
+			double rowY = (canvasLen * roundedRow) / _mesh->rows + canvasMargin;
+			double rowX = (canvasLen * roundedCol) / _mesh->cols + canvasMargin;
 
-			Pt3 nearestPoint(rowX, rowY, 0);
-			double pointDist2 = mag2(nearestPoint - cursorPoint);
+			Pt3 roundedPoint(rowX, rowY, 0);
+			double pointDist2 = mag2(roundedPoint - cursorPoint);
 
 			// Consider highlighting only when the cursor is not at a gridpoint
-			if(pointDist2 > 0.0002) // note that squared distance
+			if(pointDist2 > 0.0001) // note that squared distance
 			{
 				// Find the closest H-grid line
 				double distH = 10;
-				if(cursorCol > 0 && cursorCol < _mesh->cols)
+				if(roundedRow > 0 && roundedRow < _mesh->rows && // ignore topmost and bottommost H-lines
+					cursorCol > 0 && cursorCol < _mesh->cols) // ignore lines outside T-mesh
 					distH = abs(rowY - cursorPoint[1]);
 
 				// Find the closest V-grid line
 				double distV = 10;
-				if(cursorRow > 0 && cursorRow < _mesh->rows)
+				if(roundedCol > 0 && roundedCol < _mesh->cols && // ignore leftmost and rightmost V-lines
+					cursorRow > 0 && cursorRow < _mesh->rows) // ignore lines outside T-mesh
 					distV = abs(rowX - cursorPoint[0]);
 
 				if(min<double>(distH,distV) < 0.02)
@@ -201,14 +203,14 @@ int TopologyViewer::handle(int ev)
 					if(distH <= distV) // cursor closest to some H-line
 					{
 						highlightDir = 1;
-						highlightRow = nearestRow;
-						highlightCol = floor(cursorCol);
+						highlightRow = roundedRow;
+						highlightCol = (int) floor(cursorCol);
 					}
 					else // cursor closest to some V-line
 					{
 						highlightDir = 2;
-						highlightRow = floor(cursorRow);
-						highlightCol = nearestCol;
+						highlightRow = (int) floor(cursorRow);
+						highlightCol = roundedCol;
 					}
 				}
 			}

@@ -1,29 +1,23 @@
 //
-// "$Id: Fl_Wizard.H 4288 2005-04-16 00:13:17Z mike $"
+// "$Id: Fl_Wizard.H 8864 2011-07-19 04:49:30Z greg.ercolano $"
 //
 // Fl_Wizard widget definitions.
 //
-// Copyright 1999-2005 by Easy Software Products.
+// Copyright 1999-2010 by Easy Software Products.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
+
+/* \file
+   Fl_Wizard widget . */
 
 //
 // Include necessary header files...
@@ -35,12 +29,17 @@
 #  include <FL/Fl_Group.H>
 
 
-//
-// Fl_Wizard class...
-//
+/**
+    This widget is based off the Fl_Tabs
+    widget, but instead of displaying tabs it only changes "tabs" under
+    program control. Its primary purpose is to support "wizards" that
+    step a user through configuration or troubleshooting tasks.
 
-class FL_EXPORT Fl_Wizard : public Fl_Group
-{
+    <P>As with Fl_Tabs, wizard panes are composed of child (usually
+    Fl_Group) widgets. Navigation buttons must be added separately.
+*/
+class FL_EXPORT Fl_Wizard : public Fl_Group {
+
   Fl_Widget *value_;
 
   void draw();
@@ -58,5 +57,5 @@ class FL_EXPORT Fl_Wizard : public Fl_Group
 #endif // !_Fl_Wizard_H_
 
 //
-// End of "$Id: Fl_Wizard.H 4288 2005-04-16 00:13:17Z mike $".
+// End of "$Id: Fl_Wizard.H 8864 2011-07-19 04:49:30Z greg.ercolano $".
 //

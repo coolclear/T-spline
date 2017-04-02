@@ -1,24 +1,15 @@
 //
-// "$Id: forms.H 4288 2005-04-16 00:13:17Z mike $"
+// "$Id: forms.H 10410 2014-10-29 20:17:38Z cand $"
 //
 // Forms emulation header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2005 by Bill Spitzak and others.
+// Copyright 1998-2011 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -58,7 +49,7 @@ typedef Fl_Window FL_FORM;
 #define FL_CANCEL	0
 #define FL_INVALID	0
 #define FL_IGNORE	-1
-#define FL_CLOSE	-2
+//#define FL_CLOSE	-2 // this variable is never used in FLTK Forms. It is removed becaus it conflicts with the window FL_CLOSE event
 
 #define FL_LCOL		FL_BLACK
 #define FL_COL1		FL_GRAY
@@ -168,9 +159,9 @@ typedef int FL_COLOR;
 extern FL_EXPORT void fl_initialize(int*, char*[], const char*, FL_CMD_OPT*, int);
 inline void fl_finish() {}
 
-typedef void (*FL_IO_CALLBACK) (int, void*);
+typedef void (*FL_IO_CALLBACK) (FL_SOCKET, void*);
 inline void fl_add_io_callback(int fd, short w, FL_IO_CALLBACK cb, void* v) {
-  Fl::add_fd(fd,w,cb,v);}
+  Fl::add_fd(fd, w, cb, v);}
 inline void fl_remove_io_callback(int fd, short, FL_IO_CALLBACK) {
   Fl::remove_fd(fd);} // removes all the callbacks!
 
@@ -208,13 +199,15 @@ inline void fl_reset_focus_object(Fl_Widget* o) {Fl::focus(o);}
 
 inline void fl_set_object_boxtype(Fl_Widget* o, Fl_Boxtype a) {o->box(a);}
 inline void fl_set_object_lsize(Fl_Widget* o,int s) {o->labelsize(s);}
+
+/* forms lib font indexes must be byte sized - extract correct byte from style word */
 inline void fl_set_object_lstyle(Fl_Widget* o,int a) {
-  o->labelfont((uchar)a); o->labeltype((Fl_Labeltype)(a>>8));}
-inline void fl_set_object_lcol(Fl_Widget* o, unsigned a) {o->labelcolor(a);}
+  o->labelfont((Fl_Font)(a&0xff)); o->labeltype((Fl_Labeltype)(a>>8));}
+inline void fl_set_object_lcol(Fl_Widget* o, Fl_Color a) {o->labelcolor(a);}
 #define fl_set_object_lcolor  fl_set_object_lcol
 inline void fl_set_object_lalign(Fl_Widget* o, Fl_Align a) {o->align(a);}
 #define fl_set_object_align fl_set_object_lalign
-inline void fl_set_object_color(Fl_Widget* o,unsigned a,unsigned b) {o->color(a,b);}
+inline void fl_set_object_color(Fl_Widget* o,Fl_Color a,Fl_Color b) {o->color(a,b);}
 inline void fl_set_object_label(Fl_Widget* o, const char* a) {o->label(a); o->redraw();}
 inline void fl_set_object_position(Fl_Widget*o,int x,int y) {o->position(x,y);}
 inline void fl_set_object_size(Fl_Widget* o, int w, int h) {o->size(w,h);}
@@ -237,13 +230,12 @@ inline void fl_redraw_object(Fl_Widget* o) {o->redraw();}
 inline void fl_show_object(Fl_Widget* o) {o->show();}
 inline void fl_hide_object(Fl_Widget* o) {o->hide();}
 inline void fl_free_object(Fl_Widget* x) {delete x;}
-inline void fl_delete_object(Fl_Widget* o) {((Fl_Group*)(o->parent()))->remove(*o);}
+inline void fl_delete_object(Fl_Widget* o) {o->parent()->remove(*o);}
 inline void fl_activate_object(Fl_Widget* o) {o->activate();}
 inline void fl_deactivate_object(Fl_Widget* o) {o->deactivate();}
 
 inline void fl_add_object(Fl_Window* f, Fl_Widget* x) {f->add(x);}
-inline void fl_insert_object(Fl_Widget* o, Fl_Widget* b) {
-    ((Fl_Group*)(b->parent()))->insert(*o,b);}
+inline void fl_insert_object(Fl_Widget* o, Fl_Widget* b) {b->parent()->insert(*o,b);}
 
 inline Fl_Window* FL_ObjWin(Fl_Widget* o) {return o->window();}
 
@@ -374,7 +366,7 @@ inline void fl_set_font_name(Fl_Font n,const char* s) {Fl::set_font(n,s);}
 
 inline void fl_mapcolor(Fl_Color c, uchar r, uchar g, uchar b) {Fl::set_color(c,r,g,b);}
 
-#define fl_set_clipping(x,y,w,h) fl_clip(x,y,w,h)
+#define fl_set_clipping(x,y,w,h) fl_push_clip(x,y,w,h)
 #define fl_unset_clipping() fl_pop_clip()
 
 ////////////////////////////////////////////////////////////////
@@ -530,7 +522,7 @@ inline void fl_set_chart_lstyle(Fl_Widget* o, Fl_Font v) {
   ((Fl_Chart*)o)->textfont(v);}
 inline void fl_set_chart_lsize(Fl_Widget* o, int v) {
   ((Fl_Chart*)o)->textsize(v);}
-inline void fl_set_chart_lcolor(Fl_Widget* o, unsigned v) {
+inline void fl_set_chart_lcolor(Fl_Widget* o, Fl_Color v) {
   ((Fl_Chart*)o)->textcolor(v);}
 #define fl_set_chart_lcol   fl_set_chart_lcolor
 
@@ -651,7 +643,7 @@ inline int fl_show_question(const char* c, int = 0) {return fl_choice("%s",fl_no
 FL_EXPORT void fl_show_message(const char *,const char *,const char *);
 FL_EXPORT void fl_show_alert(const char *,const char *,const char *,int=0);
 FL_EXPORT int fl_show_question(const char *,const char *,const char *);
-inline const char *fl_show_input(const char *l,const char*d=0) {return fl_input(l,d);}
+inline const char *fl_show_input(const char *l,const char*d=0) {return fl_input("%s",d,l);}
 FL_EXPORT /*const*/ char *fl_show_simple_input(const char *label, const char *deflt = 0);
 FL_EXPORT int fl_show_choice(
     const char *m1,
@@ -662,7 +654,7 @@ FL_EXPORT int fl_show_choice(
     const char *b1,
     const char *b2);
 
-inline void fl_set_goodies_font(uchar a, uchar b) {fl_message_font(a,b);}
+inline void fl_set_goodies_font(Fl_Font a, Fl_Fontsize b) {fl_message_font(a,b);}
 #define fl_show_messages fl_message
 inline int fl_show_choices(const char* c,int n,const char* b1,const char* b2,
 			   const char* b3, int) {
@@ -673,7 +665,7 @@ inline int fl_show_choices(const char* c,int n,const char* b1,const char* b2,
 #include "Fl_File_Chooser.H"
 inline int do_matching(char* a, const char* b) {return fl_filename_match(a,b);}
 
-// Forms-compatable file chooser (implementation in fselect.C):
+// Forms-compatible file chooser (implementation in fselect.C):
 FL_EXPORT char* fl_show_file_selector(const char* message,const char* dir,
 			    const char* pat,const char* fname);
 FL_EXPORT char*	fl_get_directory();
@@ -686,7 +678,7 @@ inline void fl_set_input(Fl_Widget* o, const char* v) {
     ((Fl_Input*)o)->value(v);}
 inline void fl_set_input_return(Fl_Widget* o, int x) {
     ((Fl_Input*)o)->when((Fl_When)(x | FL_WHEN_RELEASE));}
-inline void fl_set_input_color(Fl_Widget* o, unsigned a, unsigned b) {
+inline void fl_set_input_color(Fl_Widget* o, Fl_Color a, Fl_Color b) {
     ((Fl_Input*)o)->textcolor(a);
     ((Fl_Input*)o)->cursor_color(b);
 }
@@ -827,7 +819,7 @@ inline double fl_get_timer(Fl_Widget* o) {return ((Fl_Timer*)o)->value();}
 inline void fl_suspend_timer(Fl_Widget* o) {((Fl_Timer*)o)->suspended(1);}
 inline void fl_resume_timer(Fl_Widget* o) {((Fl_Timer*)o)->suspended(0);}
 inline void fl_set_timer_countup(Fl_Widget* o,char d) {((Fl_Timer*)o)->direction(d);}
-void fl_gettime(long* sec, long* usec);
+void FL_EXPORT fl_gettime(long* sec, long* usec);
 
 // Fl_XYPlot nyi
 
@@ -840,5 +832,5 @@ inline void fl_draw() {Fl::flush();}
 #endif	/* define __FORMS_H__ */
 
 //
-// End of "$Id: forms.H 4288 2005-04-16 00:13:17Z mike $".
+// End of "$Id: forms.H 10410 2014-10-29 20:17:38Z cand $".
 //

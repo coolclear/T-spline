@@ -517,16 +517,16 @@ void GeometryWindow::resize(int x0, int y0, int w, int h) {
 void GeometryWindow::handleRot(int x, int y, bool beginRot) {
 	if(beginRot) {
 		ArcBall::Tuple2f_t mousePt;
-		mousePt.s.X = (float) x/2.0;
-		mousePt.s.Y = (float) y/2.0;
+		mousePt.s.X = (float) (x/2.0);
+		mousePt.s.Y = (float) (y/2.0);
 
 		_lastRot = (*_meshScene.getRotate());
 		_arcBall->click(&mousePt);
 	}
 	else {
 		ArcBall::Tuple2f_t mousePt;
-		mousePt.s.X = (float)x/2.0;
-		mousePt.s.Y = (float)y/2.0;
+		mousePt.s.X = (float) (x/2.0);
+		mousePt.s.Y = (float) (y/2.0);
 
 		ArcBall::Quat4fT thisQuat;
 		ArcBall::Matrix3f_t thisRot;

@@ -1,29 +1,23 @@
 //
-// "$Id: Fl_Tiled_Image.H 4288 2005-04-16 00:13:17Z mike $"
+// "$Id: Fl_Tiled_Image.H 10598 2015-03-01 20:16:56Z AlbrechtS $"
 //
 // Tiled image header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2005 by Bill Spitzak and others.
+// Copyright 1998-2015 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
+
+/* \file
+   Fl_Tiled_Image widget . */
 
 #ifndef Fl_Tiled_Image_H
 #  define Fl_Tiled_Image_H
@@ -31,11 +25,16 @@
 #  include "Fl_Image.H"
 
 
-// Tiled image class. 
+/**
+  This class supports tiling of images over a specified area.
+
+  The source (tile) image is \b not copied unless you call the
+  color_average(), desaturate(), or inactive() methods.
+*/
 class FL_EXPORT Fl_Tiled_Image : public Fl_Image {
   protected:
 
-  Fl_Image	*image_;		// The image that is shared
+  Fl_Image	*image_;		// The image that is tiled
   int		alloc_image_;		// Did we allocate this image?
 
   public:
@@ -49,11 +48,12 @@ class FL_EXPORT Fl_Tiled_Image : public Fl_Image {
   virtual void desaturate();
   virtual void draw(int X, int Y, int W, int H, int cx, int cy);
   void draw(int X, int Y) { draw(X, Y, w(), h(), 0, 0); }
+  /** Gets The image that is tiled */
   Fl_Image *image() { return image_; }
 };
 
 #endif // !Fl_Tiled_Image_H
 
 //
-// End of "$Id: Fl_Tiled_Image.H 4288 2005-04-16 00:13:17Z mike $"
+// End of "$Id: Fl_Tiled_Image.H 10598 2015-03-01 20:16:56Z AlbrechtS $"
 //

@@ -1,33 +1,30 @@
 //
-// "$Id: Fl_Pixmap.H 4288 2005-04-16 00:13:17Z mike $"
+// "$Id: Fl_Pixmap.H 9706 2012-11-06 20:46:14Z matt $"
 //
 // Pixmap header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2005 by Bill Spitzak and others.
+// Copyright 1998-2012 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
 
+/* \file
+   Fl_Pixmap widget . */
+
 #ifndef Fl_Pixmap_H
 #define Fl_Pixmap_H
 #  include "Fl_Image.H"
+#if defined(WIN32)
+#  include "x.H"
+#endif
 
 class Fl_Widget;
 struct Fl_Menu_Item;
@@ -37,10 +34,20 @@ struct Fl_Menu_Item;
 #    define explicit
 #  endif // __sgi && !_COMPILER_VERSION
 
+/**
+  The Fl_Pixmap class supports caching and drawing of colormap
+  (pixmap) images, including transparency.
+*/
 class FL_EXPORT Fl_Pixmap : public Fl_Image {
+  friend class Fl_Quartz_Graphics_Driver;
+  friend class Fl_GDI_Graphics_Driver;
+  friend class Fl_GDI_Printer_Graphics_Driver;
+  friend class Fl_Xlib_Graphics_Driver;
   void copy_data();
   void delete_data();
   void set_data(const char * const *p);
+  int prepare(int XP, int YP, int WP, int HP, int &cx, int &cy,
+			 int &X, int &Y, int &W, int &H);
 
   protected:
 
@@ -49,18 +56,33 @@ class FL_EXPORT Fl_Pixmap : public Fl_Image {
   public:
 
   int alloc_data; // Non-zero if data was allocated
+  
+  private:
+
+#if defined(WIN32)
+#if FLTK_ABI_VERSION < 10301
+  static // a static member is needed for ABI compatibility
+#endif
+  UINT pixmap_bg_color; // RGB color used for pixmap background
+#endif // WIN32
 #if defined(__APPLE__) || defined(WIN32)
-  void *id; // for internal use
-  void *mask; // for internal use (mask bitmap)
+  void *id_; // for internal use
+  void *mask_; // for internal use (mask bitmap)
 #else
-  unsigned id; // for internal use
-  unsigned mask; // for internal use (mask bitmap)
+  unsigned id_; // for internal use
+  unsigned mask_; // for internal use (mask bitmap)
 #endif // __APPLE__ || WIN32
   
-  explicit Fl_Pixmap(char * const * D) : Fl_Image(-1,0,1), alloc_data(0), id(0), mask(0) {set_data((const char*const*)D); measure();}
-  explicit Fl_Pixmap(uchar* const * D) : Fl_Image(-1,0,1), alloc_data(0), id(0), mask(0) {set_data((const char*const*)D); measure();}
-  explicit Fl_Pixmap(const char * const * D) : Fl_Image(-1,0,1), alloc_data(0), id(0), mask(0) {set_data((const char*const*)D); measure();}
-  explicit Fl_Pixmap(const uchar* const * D) : Fl_Image(-1,0,1), alloc_data(0), id(0), mask(0) {set_data((const char*const*)D); measure();}
+  public:
+
+  /**    The constructors create a new pixmap from the specified XPM data.  */
+  explicit Fl_Pixmap(char * const * D) : Fl_Image(-1,0,1), alloc_data(0), id_(0), mask_(0) {set_data((const char*const*)D); measure();}
+  /**    The constructors create a new pixmap from the specified XPM data.  */
+  explicit Fl_Pixmap(uchar* const * D) : Fl_Image(-1,0,1), alloc_data(0), id_(0), mask_(0) {set_data((const char*const*)D); measure();}
+  /**    The constructors create a new pixmap from the specified XPM data.  */
+  explicit Fl_Pixmap(const char * const * D) : Fl_Image(-1,0,1), alloc_data(0), id_(0), mask_(0) {set_data((const char*const*)D); measure();}
+  /**    The constructors create a new pixmap from the specified XPM data.  */
+  explicit Fl_Pixmap(const uchar* const * D) : Fl_Image(-1,0,1), alloc_data(0), id_(0), mask_(0) {set_data((const char*const*)D); measure();}
   virtual ~Fl_Pixmap();
   virtual Fl_Image *copy(int W, int H);
   Fl_Image *copy() { return copy(w(), h()); }
@@ -76,5 +98,5 @@ class FL_EXPORT Fl_Pixmap : public Fl_Image {
 #endif
 
 //
-// End of "$Id: Fl_Pixmap.H 4288 2005-04-16 00:13:17Z mike $".
+// End of "$Id: Fl_Pixmap.H 9706 2012-11-06 20:46:14Z matt $".
 //
