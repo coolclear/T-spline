@@ -16,10 +16,6 @@
 #include "Matrix.h"
 #include "Rendering/ArcBall.h"
 
-#ifndef FINF32
-#define FINF32 1e9f
-#endif
-
 #ifndef DINF
 #define DINF 1e9
 #endif

@@ -166,6 +166,6 @@ void Util::writeString(ostream &stream, const string& s) {
 
 double Util::rand1()
 {
-	const int x = 32700;
-	return ((rand() % x) * x + rand() % x) * 1.0 / (x*x);
+	const double x = RAND_MAX + 1;
+	return ((rand() / x) + rand()) / x;
 }
