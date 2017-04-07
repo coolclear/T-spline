@@ -73,34 +73,26 @@ void ZBufferRenderer::draw()
 		glPointSize(0);
 
 		// Draw the control points
-		for(const auto &row: _scene->getSpheres())
+		glColor3d(0.8, 0.8, 0.8);
+		FOR(r,0,_scene->rows + 1) FOR(c,0,_scene->cols + 1)
 		{
-			for(const auto &sphere: row)
-			{
-				if(sphere != NULL)
-				{
-					glColor3d(0.8, 0.8, 0.8);
-					sphere->accept(_visitor, NULL);
-				}
-			}
+			if(_scene->useSphere(r, c))
+				_scene->gridSpheres[r][c].first->accept(_visitor, NULL);
 		}
 
 		// Draw links between adjacent control points
 		glLineWidth(3);
 		glBegin(GL_LINES);
 
-		auto &spheres = _scene->getSpheres();
-		int rows = spheres.size();
-		int cols = spheres[0].size();
-
 		// Draw H-links
-		for(int r = 0; r < rows; ++r)
+		FOR(r,0,_scene->rows + 1)
 		{
-			Sphere *last = NULL, *curr;
-			for(int c = 0; c < cols; ++c)
+			const Sphere *last = NULL, *curr;
+			FOR(c,0,_scene->cols + 1)
 			{
-				if(!(curr = spheres[r][c]))
+				if(!_scene->useSphere(r, c))
 					continue;
+				curr = _scene->gridSpheres[r][c].first;
 				if(last)
 				{
 					if(_scene->getGridH()[r][c-1])
@@ -115,13 +107,14 @@ void ZBufferRenderer::draw()
 		}
 
 		// Draw V-links
-		for(int c = 0; c < cols; ++c)
+		FOR(c,0,_scene->cols + 1)
 		{
-			Sphere *last = NULL, *curr;
-			for(int r = 0; r < rows; ++r)
+			const Sphere *last = NULL, *curr;
+			FOR(r,0,_scene->rows + 1)
 			{
-				if(!(curr = spheres[r][c]))
+				if(!_scene->useSphere(r, c))
 					continue;
+				curr = _scene->gridSpheres[r][c].first;
 				if(last)
 				{
 					if(_scene->getGridV()[r-1][c])

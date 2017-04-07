@@ -71,7 +71,7 @@ void PropertyWindow::draw() {
 	Fl_Window::draw();
 }
 
-Pt3 PropertyWindow::getCenter() { return Pt3(); }
+Pt3 PropertyWindow::getCenter() const { return Pt3(); }
 
 void PropertyWindow::translate(const Vec3& trans) {
 	if(_geom)

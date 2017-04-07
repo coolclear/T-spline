@@ -144,49 +144,7 @@ void TopologyViewer::draw()
 		glBegin(GL_POINTS);
 		FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
 		{
-			int boundaryCount = 0;
-			boundaryCount += (r == 0); // top
-			boundaryCount += (r == _mesh->rows); // bottom
-			boundaryCount += (c == 0); // left
-			boundaryCount += (c == _mesh->cols); // right
-
-			int valenceCount = 0;
-			int valenceBits = 0;
-			auto addBit = [&](int b, int val)
-			{
-				if(val)
-				{
-					++valenceCount;
-					valenceBits |= 1 << b;
-				}
-			};
-			addBit(0, r > 0 && _mesh->gridV[r-1][c]); // up
-			addBit(1, r < _mesh->rows && _mesh->gridV[r][c]); // down
-			addBit(2, c > 0 && _mesh->gridH[r][c-1]); // left
-			addBit(3, c < _mesh->cols && _mesh->gridH[r][c]); // right
-
-			int vertexType = 0; // 0:don't draw, 3-4:valence
-
-			if(boundaryCount == 0) // inner vertices
-			{
-				if(valenceCount >= 3)
-					vertexType = valenceCount;
-				else if(valenceCount == 0)
-					vertexType = 0; // no line
-				else if(valenceCount == 2 && (valenceBits == 3 || valenceBits == 12))
-					vertexType = 0; // vertical or horizontal lines
-				else
-					vertexType = -1;
-			}
-			else if(boundaryCount == 1) // side vertices (not corners)
-			{
-				if(valenceCount == 3)
-					vertexType = 4;
-			}
-			else // boundaryCount == 2, corner vertices
-			{
-				vertexType = 4; // Always draw the corners
-			}
+			int vertexType = _mesh->gridPoints[r][c].type;
 
 			if(vertexType != 0)
 			{
@@ -226,6 +184,7 @@ int TopologyViewer::handle(int ev)
 				_mesh->gridV[highlightRow][highlightCol] =
 					!_mesh->gridV[highlightRow][highlightCol];
 			}
+			_mesh->updateMeshInfo();
 
 			// Reflect changes to the rendered scene
 			if(_parent)

@@ -22,10 +22,10 @@ public:
 
 	// set/get methods
 	void setRadius(double r) { _rad = r; }
-	double getRadius() { return _rad; }
+	double getRadius() const { return _rad; }
 	void setCenter(const Pt3& c) { _center = c; }
+	Pt3 getCenter() const { return _center; }
 
-	Pt3 getCenter() { return _center; }
 	void translate(const Vec3& trans);
 	void rotate(double d, int axis);
 	void updateTransform();

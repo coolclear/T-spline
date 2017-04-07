@@ -54,7 +54,7 @@ public:
 
 	// subclass Operand so we can interactively update the values when the object
 	//  is moved or rotated
-	virtual Pt3 getCenter();
+	virtual Pt3 getCenter() const;
 	virtual void translate(const Vec3& trans);
 
 	void draw();

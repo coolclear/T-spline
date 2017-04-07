@@ -1,22 +1,39 @@
 #ifndef T_MESH_H
 #define T_MESH_H
 
+#include "Rendering/Operator.h"
 #include "Rendering/RenderingPrimitives.h"
 #include "Rendering/ShadeAndShapes.h"
 
 #include <mutex>
 
+typedef pair<Sphere*,Operator*> PSO;
+
+struct VertexInfo
+{
+	// Explicit info (input)
+	Pt3 position;
+	// Implicit info (computed)
+	int valenceBits;
+	int type;
+	VertexInfo() {}
+	VertexInfo(Pt3 p, int vb, int t)
+	{
+		position = move(p);
+		valenceBits = vb;
+		type = t;
+	}
+};
+
 class TMesh
 {
 public:
-	const double radius = 0.05;
 	mutex lock; // For allowing only one thread to access the mesh at a time
 	int rows, cols;
 	int degH, degV; // Horizontal: for each row, Vertical: for each column
 	vector<double> knotsH, knotsV;
 	vector<vector<bool>> gridH, gridV;
-	vector<vector<Sphere*>> gridPoints;
-
+	vector<vector<VertexInfo>> gridPoints; // explicit and implicit vertex info
 
 	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
@@ -28,22 +45,32 @@ public:
 	static bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
 	static bool validateKnots(const vector<double> &knots, int n, int deg);
 	static bool checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg);
-	void freeGridPoints();
+
+	void updateMeshInfo();
 };
 
 class TMeshScene : public SceneInfo
 {
 protected:
-	vector<vector<Sphere*>> gridSpheres;
-	vector<vector<bool>> gridH, gridV;
+	TMesh *mesh;
+	map<Sphere*, pair<int, int>> sphereIndices;
 
 public:
-	TMeshScene() {}
+	const double radius = 0.05;
+	int rows, cols; // internal dimensions for updating 'gridSpheres'
+	vector<vector<PSO>> gridSpheres;
+
+	TMeshScene() : mesh(NULL), rows(0), cols(0) {}
+	~TMeshScene() { freeGridSpheres(); }
 
 	void setup(TMesh *tmesh);
-	const vector<vector<Sphere*>> &getSpheres() { return gridSpheres; }
-	const vector<vector<bool>> &getGridH() { return gridH; }
-	const vector<vector<bool>> &getGridV() { return gridV; }
+	void updateScene();
+	void updateSphere(Sphere *sphere);
+	void freeGridSpheres();
+
+	bool useSphere(int r, int c) const;
+	const vector<vector<bool>> &getGridH() const { return mesh->gridH; }
+	const vector<vector<bool>> &getGridV() const { return mesh->gridV; }
 };
 
 class TriMesh {

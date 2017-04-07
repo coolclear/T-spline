@@ -5,7 +5,7 @@
 
 class Operand {
 public:
-	virtual Pt3 getCenter() = 0;
+	virtual Pt3 getCenter() const = 0;
 	virtual void translate(const Vec3& trans) = 0;
 };
 

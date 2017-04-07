@@ -9,7 +9,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-TMesh TopologyWindow::_mesh(1, 1, 1, 1);
+TMesh TopologyWindow::_mesh(6, 6, 3, 2);
 
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
@@ -51,7 +51,7 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	this->callback(escapeButtonCb, this);
 	this->color(WIN_COLOR);
 
-	loadMesh("files/default.txt");
+	//loadMesh("files/default.txt");
 	updatePanel();
 }
 

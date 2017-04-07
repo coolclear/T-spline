@@ -50,20 +50,6 @@ bool TMesh::checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg
 	}
 }
 
-// Free sphere objects in the 2D array 'gridPoints'
-void TMesh::freeGridPoints()
-{
-	for(auto &spheres: gridPoints)
-	{
-		for(auto &s: spheres)
-		{
-			delete s;
-			s = NULL;
-		}
-	}
-	gridPoints.clear();
-}
-
 
 TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 {
@@ -77,20 +63,20 @@ TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 	if(cols > 0)
 	{
 		knotsH.resize(cols + degH);
-		if(autoFill) // some default values: 0, 1, ...
+		if(autoFill) // some default values: 0, 1, ... (duplicated at ends)
 		{
 			for(int i = 0; i < cols + degH; ++i)
-				knotsH[i] = i;
+				knotsH[i] = min(cols, max(degH - 1, i)) - (degH - 1);
 			assert(validateKnots(knotsH, cols, degH));
 		}
 	}
 	if(rows > 0)
 	{
 		knotsV.resize(rows + degV);
-		if(autoFill) // some default values: 0, 1, ...
+		if(autoFill) // some default values: 0, 1, ... (duplicated at ends)
 		{
 			for(int i = 0; i < rows + degV; ++i)
-				knotsV[i] = i;
+				knotsV[i] = min(rows, max(degV - 1, i)) - (degV - 1);
 			assert(validateKnots(knotsV, rows, degV));
 		}
 	}
@@ -100,26 +86,23 @@ TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 	gridV.assign(cols, vector<bool>(cols + 1, true));
 
 	// Assign some uniform coordinates initially
-	gridPoints.resize(rows + 1, vector<Sphere*>(cols + 1, NULL));
+	gridPoints.resize(rows + 1, vector<VertexInfo>(cols + 1));
 
 	if(autoFill) // a default mesh on the XY-plane
 	{
 		for(int i = 0; i <= rows; ++i)
 			for(int j = 0; j <= cols; ++j)
-				gridPoints[i][j] = new Sphere(Pt3((j+1)*0.5, (i+1)*0.5, 0.5), radius);
+				gridPoints[i][j] = VertexInfo(Pt3((j+1)*0.5, (rows-i+1)*0.5, 0), 0, 0);
 	}
+
+	updateMeshInfo();
 }
 
-TMesh::~TMesh()
-{
-	lock.lock();
-	freeGridPoints();
-	lock.unlock();
-}
+TMesh::~TMesh() {}
 
 
 /*
-* Replaces the current content with a given T-mesh T using C++ move,
+* Replaces the current content with a given T-mesh T using C++ move(),
 * and also destroys the content in T (T becomes unusable after this function).
 */
 void TMesh::assign(TMesh &T)
@@ -134,10 +117,8 @@ void TMesh::assign(TMesh &T)
 	this->knotsV = move(T.knotsV);
 	this->gridH = move(T.gridH);
 	this->gridV = move(T.gridV);
-
-	this->freeGridPoints();
 	this->gridPoints = move(T.gridPoints);
-	T.gridPoints.clear();
+	this->updateMeshInfo();
 
 	this->lock.unlock();
 }
@@ -320,7 +301,7 @@ bool TMesh::meshFromFile(const string &path)
 				}
 			}
 			p[3] = 1;
-			T.gridPoints[r][c] = new Sphere(p, radius);
+			T.gridPoints[r][c].position = p;
 		}
 	}
 
@@ -415,7 +396,7 @@ bool TMesh::meshToFile(const string &path)
 			for(int c = 0; c <= this->cols; ++c)
 			{
 				fs << '\n';
-				writePt3(fs, this->gridPoints[r][c]->getCenter());
+				writePt3(fs, this->gridPoints[r][c].position);
 			}
 		}
 	}
@@ -432,38 +413,128 @@ bool TMesh::meshToFile(const string &path)
 #undef separator
 }
 
-
-
-void TMeshScene::setup(TMesh *tmesh)
+/*
+ * Update implicit mesh information that is computed but not input
+ * The calling thread should lock the mutex before calling
+ */
+void TMesh::updateMeshInfo()
 {
-	gridSpheres = tmesh->gridPoints;
-	gridH = tmesh->gridH;
-	gridV = tmesh->gridV;
-	for(int r = 0; r <= tmesh->rows; ++r)
+	FOR(r,0,rows + 1) FOR(c,0,cols + 1)
 	{
-		for(int c = 0; c <= tmesh->cols; ++c)
+		int &valenceBits = gridPoints[r][c].valenceBits; // 0-3: directions UDLR
+		int &vertexType = gridPoints[r][c].type; // 0:don't draw, 3-4:valence
+		valenceBits = 0;
+		vertexType = 0;
+
+		int boundaryCount = 0;
+		boundaryCount += (r == 0); // top
+		boundaryCount += (r == rows); // bottom
+		boundaryCount += (c == 0); // left
+		boundaryCount += (c == cols); // right
+
+		int valenceCount = 0;
+		auto addBit = [&](int b, int val)
 		{
-			bool doDraw = false;
-
-			// TODO: determine which points should or should not be used
-			doDraw = true; // will draw every point for now
-
-			if(r == 0 || r == tmesh->rows || c == 0 || c == tmesh->cols)
-				doDraw = true; // always draw boundary points (for now)
-			else
+			if(val)
 			{
-				bool bu = tmesh->gridV[r-1][c];
-				bool bd = tmesh->gridV[r][c];
-				bool bl = tmesh->gridH[r][c-1];
-				bool br = tmesh->gridH[r][c];
-				if((bu && bd && bl && br) || (bu != bd) || (bl != br))
-					doDraw = true; // draw the point if it has an edge but is not an I-junction
+				++valenceCount;
+				valenceBits |= 1 << b;
 			}
+		};
+		addBit(0, r > 0 && gridV[r-1][c]); // up
+		addBit(1, r < rows && gridV[r][c]); // down
+		addBit(2, c > 0 && gridH[r][c-1]); // left
+		addBit(3, c < cols && gridH[r][c]); // right
 
-			if(!doDraw) gridSpheres[r][c] = NULL; // don't draw this sphere (gridpoint)
+		if(boundaryCount == 0) // inner vertices
+		{
+			if(valenceCount >= 3)
+				vertexType = valenceCount;
+			else if(valenceCount == 0)
+				vertexType = 0; // no line
+			else if(valenceCount == 2 && (valenceBits == 3 || valenceBits == 12))
+				vertexType = 0; // vertical or horizontal lines
+			else
+				vertexType = -1;
+		}
+		else if(boundaryCount == 1) // side vertices (not corners)
+		{
+			if(valenceCount == 3)
+				vertexType = 4;
+		}
+		else // boundaryCount == 2, corner vertices
+		{
+			vertexType = 4; // Always draw the corners
 		}
 	}
 }
+
+
+// Initialize mesh information for the scene
+void TMeshScene::setup(TMesh *tmesh)
+{
+	mesh = tmesh;
+	updateScene();
+}
+
+// Update the grid spheres for the scene, including coordinates
+void TMeshScene::updateScene()
+{
+	// Update dynamic objects in 'gridSpheres' if dimensions change
+	if(rows != mesh->rows || cols != mesh->cols)
+	{
+		freeGridSpheres();
+		sphereIndices.clear();
+
+		rows = mesh->rows;
+		cols = mesh->cols;
+		gridSpheres.assign(rows + 1, vector<PSO>(cols + 1, PSO(NULL, NULL)));
+
+		FOR(r,0,rows + 1) FOR(c,0,cols + 1)
+		{
+			Sphere *sphere = new Sphere(Pt3(), radius);
+			sphereIndices[sphere] = {r, c};
+			gridSpheres[r][c] = PSO(sphere, new Operator(sphere));
+		}
+	}
+
+	FOR(r,0,rows + 1) FOR(c,0,cols + 1)
+		gridSpheres[r][c].first->setCenter(mesh->gridPoints[r][c].position);
+}
+
+void TMeshScene::updateSphere(Sphere *sphere)
+{
+	auto it = sphereIndices.find(sphere);
+	if(it != sphereIndices.end())
+	{
+		int r = it->second.first;
+		int c = it->second.second;
+		mesh->gridPoints[r][c].position = sphere->getCenter();
+	}
+}
+
+// Free sphere-operator objects in the 2D array 'gridSpheres'
+void TMeshScene::freeGridSpheres()
+{
+	for(auto &spheres: gridSpheres)
+	{
+		for(auto &s: spheres)
+		{
+			delete s.first;
+			delete s.second;
+		}
+	}
+	gridSpheres.clear();
+}
+
+bool TMeshScene::useSphere(int r, int c) const
+{
+	if(r >= 0 && r <= rows && c >= 0 && c <= cols && mesh->gridPoints[r][c].type > 0)
+		return true;
+	else
+		return false;
+}
+
 
 
 static Material* createMaterial() {
@@ -654,7 +725,7 @@ void TriMeshScene::setScene(const TMesh *T)
 					{
 						int r1 = 0;
 						int c1 = j + p - T->degH + 1;
-						baseLayer[j].point = T->gridPoints[r1][c1]->getCenter();
+						baseLayer[j].point = T->gridPoints[r1][c1].position;
 						populateKnotLR(baseLayer[j], j + p, T->degH, T->knotsH);
 					}
 
@@ -669,7 +740,7 @@ void TriMeshScene::setScene(const TMesh *T)
 			{
 				P.resize(T->cols + 1);
 				for(int i = 0; i <= T->cols; ++i)
-					P[i] = {T->gridPoints[0][i]->getCenter(), 0};
+					P[i] = {T->gridPoints[0][i].position, 0};
 			}
 		}
 		else // (R+1) x 1 grid
@@ -677,7 +748,7 @@ void TriMeshScene::setScene(const TMesh *T)
 			// TODO: make this the same as 1 x (C+1) grid (though, it's redundant)
 			P.resize(T->rows + 1);
 			for(int i = 0; i <= T->rows; ++i)
-				P[i] = {T->gridPoints[i][0]->getCenter(), 0};
+				P[i] = {T->gridPoints[i][0].position, 0};
 		}
 		setCurve(P);
 	}
@@ -725,7 +796,7 @@ void TriMeshScene::setScene(const TMesh *T)
 					for(int r = 0; r <= T->degV; ++r)
 					{
 						const int r1 = r + rp - T->degV + 1;
-						pointsV[r].point = T->gridPoints[r1][c1]->getCenter();
+						pointsV[r].point = T->gridPoints[r1][c1].position;
 						populateKnotLR(pointsV[r], r + rp, T->degV, T->knotsV);
 					}
 

@@ -70,21 +70,10 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 	_meshScene.setup(tmesh);
 	tmesh->lock.unlock();
 
-	if(_geom2op.size() > 0)
-	{
-		for(auto geoOp: _geom2op)
-			delete geoOp.second;
-		_geom2op.clear();
-	}
-
-	for(const auto &row: _meshScene.getSpheres())
-	{
-		for(const auto &sphere: row)
-		{
-			Operator* op = new Operator(dynamic_cast<Operand*>(sphere));
-			_geom2op[sphere] = op;
-		}
-	}
+	_geom2op.clear();
+	for(const auto &row: _meshScene.gridSpheres)
+		for(const auto &pso: row)
+			_geom2op[pso.first] = pso.second;
 
 	_zbuffer.setScene(&_meshScene);
 	_zbuffer.initScene();
@@ -249,6 +238,8 @@ int GeometryWindow::handle(int ev)
 				_holdAxis = -1;
 				_zbuffer.setOperator(op, OP_MODE_TRANSLATE);
 
+				Sphere *sphere = dynamic_cast<Sphere *>(op->getPrimaryOp());
+				_meshScene.updateSphere(sphere);
 				setupSurface(NULL);
 			}
 		}
@@ -325,13 +316,14 @@ int GeometryWindow::handle(int ev)
 				double t = 1e12; // INF
 				Geometry* hobj = NULL;
 				sceneLock.lock();
-				for(const auto &row: _meshScene.getSpheres())
+				FOR(r,0,_meshScene.rows + 1) FOR(c,0,_meshScene.cols + 1)
 				{
-					for(const auto &sphere: row)
+					if(_meshScene.useSphere(r,c))
 					{
-						if(sphere == NULL) continue;
+						Sphere *const sphere = _meshScene.gridSpheres[r][c].first;
 						sphere->accept(_intersector, &data);
-						if(data.hit && t > data.t) {
+						if(data.hit && t > data.t)
+						{
 							t = data.t;
 							hobj = sphere;
 						}
