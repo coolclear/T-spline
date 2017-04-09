@@ -82,8 +82,8 @@ TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 	}
 
 	// Make the full grid initially
-	gridH.assign(rows + 1, vector<bool>(cols, true));
-	gridV.assign(cols, vector<bool>(cols + 1, true));
+	gridH.assign(rows + 1, vector<EdgeInfo>(cols, EdgeInfo(true, true)));
+	gridV.assign(cols, vector<EdgeInfo>(cols + 1, EdgeInfo(true, true)));
 
 	// Assign some uniform coordinates initially
 	gridPoints.resize(rows + 1, vector<VertexInfo>(cols + 1));
@@ -177,7 +177,7 @@ bool TMesh::meshFromFile(const string &path)
 					fprintf(stderr, "Failed to read horizontal grid info\n");
 					return false;
 				}
-				T.gridH[r][c] = bit;
+				T.gridH[r][c].on = bit;
 			}
 		}
 		// - Vertical: R x (C-1) bools
@@ -192,7 +192,7 @@ bool TMesh::meshFromFile(const string &path)
 					fprintf(stderr, "Failed to read vertical grid info\n");
 					return false;
 				}
-				T.gridV[r][c] = bit;
+				T.gridV[r][c].on = bit;
 			}
 		}
 	}
@@ -354,7 +354,7 @@ bool TMesh::meshToFile(const string &path)
 			fs << '\n';
 			for(int r = 1; r < this->rows; ++r)
 				for(int c = 0; c < this->cols; ++c)
-					fs << separator(c) << (int)this->gridH[r][c];
+					fs << separator(c) << (int)this->gridH[r][c].on;
 		}
 		// - Vertical: R x (C-1) bools
 		if(this->rows > 0)
@@ -362,7 +362,7 @@ bool TMesh::meshToFile(const string &path)
 			fs << '\n';
 			for(int r = 0; r < this->rows; ++r)
 				for(int c = 1; c < this->cols; ++c)
-					fs << separator(c-1) << (int)this->gridV[r][c];
+					fs << separator(c-1) << (int)this->gridV[r][c].on;
 		}
 	}
 
@@ -419,12 +419,15 @@ bool TMesh::meshToFile(const string &path)
  */
 void TMesh::updateMeshInfo()
 {
+	validVertices = true;
+
 	FOR(r,0,rows + 1) FOR(c,0,cols + 1)
 	{
 		int &valenceBits = gridPoints[r][c].valenceBits; // 0-3: directions UDLR
-		int &vertexType = gridPoints[r][c].type; // 0:don't draw, 3-4:valence
+		int &valenceType = gridPoints[r][c].valenceType; // 0:don't draw, 3-4:valence
 		valenceBits = 0;
-		vertexType = 0;
+		valenceType = 0;
+		gridPoints[r][c].extendFlag = 0;
 
 		int boundaryCount = 0;
 		boundaryCount += (r == 0); // top
@@ -441,32 +444,117 @@ void TMesh::updateMeshInfo()
 				valenceBits |= 1 << b;
 			}
 		};
-		addBit(0, r > 0 && gridV[r-1][c]); // up
-		addBit(1, r < rows && gridV[r][c]); // down
-		addBit(2, c > 0 && gridH[r][c-1]); // left
-		addBit(3, c < cols && gridH[r][c]); // right
+		addBit(0, r > 0 && gridV[r-1][c].on); // up
+		addBit(1, r < rows && gridV[r][c].on); // down
+		addBit(2, c > 0 && gridH[r][c-1].on); // left
+		addBit(3, c < cols && gridH[r][c].on); // right
 
 		if(boundaryCount == 0) // inner vertices
 		{
 			if(valenceCount >= 3)
-				vertexType = valenceCount;
+				valenceType = valenceCount;
 			else if(valenceCount == 0)
-				vertexType = 0; // no line
+				valenceType = 0; // no line
 			else if(valenceCount == 2 && (valenceBits == 3 || valenceBits == 12))
-				vertexType = 0; // vertical or horizontal lines
+				valenceType = 2; // vertical or horizontal lines
 			else
-				vertexType = -1;
+			{
+				valenceType = -1;
+				validVertices = false; // no longer consider AD or AS
+			}
 		}
 		else if(boundaryCount == 1) // side vertices (not corners)
 		{
 			if(valenceCount == 3)
-				vertexType = 4;
+				valenceType = 4;
 		}
 		else // boundaryCount == 2, corner vertices
 		{
-			vertexType = 4; // Always draw the corners
+			valenceType = 4; // Always draw the corners
 		}
 	}
+
+
+	// Validate edges (only if vertices are fine)
+	FOR(r,0,rows + 1) FOR(c,0,cols)
+		gridH[r][c].valid = true;
+	FOR(r,0,rows) FOR(c,0,cols + 1)
+		gridV[r][c].valid = true;
+
+	// Check whether the mesh is AD (before checking AS)
+	if(!validVertices)
+	{
+		isAD = false;
+		// Since vertices aren't even valid, just ignore issues with edges
+	}
+	else
+	{
+		isAD = true; // may turn out to be false after checking
+
+		// Draw H-links
+		FOR(r,0,rows + 1)
+		{
+			int lastC = -1;
+			FOR(c,0,cols + 1)
+			{
+				int type = gridPoints[r][c].valenceType;
+				if(type <= 0)
+					continue;
+				if(lastC >= 0)
+				{
+					if(type == 3 && gridPoints[r][lastC].valenceType == 3 &&
+						!gridH[r][c-1].on)
+					{
+						FOR(i,lastC,c)
+							gridH[r][i].valid = false;
+						isAD = false;
+					}
+				}
+				lastC = c;
+			}
+		}
+
+		// Draw V-links
+		FOR(c,0,cols + 1)
+		{
+			int lastR = -1;
+			FOR(r,0,rows + 1)
+			{
+				int type = gridPoints[r][c].valenceType;
+				if(type <= 0)
+					continue;
+				if(lastR >= 0)
+				{
+					if(type == 3 && gridPoints[lastR][c].valenceType == 3 &&
+						!gridV[r-1][c].on)
+					{
+						FOR(i,lastR,r)
+							gridV[i][c].valid = false;
+						isAD = false;
+					}
+				}
+				lastR = r;
+			}
+		}
+	}
+
+	// Check whether the mesh is AS (must also be AD)
+	if(!isAD)
+		isAS = false;
+	else
+	{
+		isAS = true; // may turn out to be false after checking
+
+		// TODO NEXT
+	}
+}
+
+bool TMesh::useVertex(int r, int c) const
+{
+	if(r >= 0 && r <= rows && c >= 0 && c <= cols && gridPoints[r][c].valenceType >= 3)
+		return true;
+	else
+		return false;
 }
 
 
@@ -529,10 +617,7 @@ void TMeshScene::freeGridSpheres()
 
 bool TMeshScene::useSphere(int r, int c) const
 {
-	if(r >= 0 && r <= rows && c >= 0 && c <= cols && mesh->gridPoints[r][c].type > 0)
-		return true;
-	else
-		return false;
+	return mesh->useVertex(r, c);
 }
 
 

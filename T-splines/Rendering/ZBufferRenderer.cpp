@@ -95,7 +95,7 @@ void ZBufferRenderer::draw()
 				curr = _scene->gridSpheres[r][c].first;
 				if(last)
 				{
-					if(_scene->getGridH()[r][c-1])
+					if(_scene->getGridH()[r][c-1].on)
 						glColor3d(0, 0.4, 0.8); // greenish blue
 					else
 						glColor3d(0, 0.1, 0.2); // dark blue
@@ -117,7 +117,7 @@ void ZBufferRenderer::draw()
 				curr = _scene->gridSpheres[r][c].first;
 				if(last)
 				{
-					if(_scene->getGridV()[r-1][c])
+					if(_scene->getGridV()[r-1][c].on)
 						glColor3d(0.8, 0.4, 0); // orange
 					else
 						glColor3d(0.2, 0.1, 0); // brown

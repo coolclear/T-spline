@@ -15,13 +15,28 @@ struct VertexInfo
 	Pt3 position;
 	// Implicit info (computed)
 	int valenceBits;
-	int type;
+	int valenceType; // -1: invalid, 0/2: unused, 3: T-junction, 4: "full" vertex
+	int extendFlag; // whether part of H(0) or V(1) T-junction extensions
 	VertexInfo() {}
 	VertexInfo(Pt3 p, int vb, int t)
 	{
 		position = move(p);
 		valenceBits = vb;
-		type = t;
+		valenceType = t;
+	}
+};
+
+struct EdgeInfo
+{
+	// Explicit info (input)
+	bool on;
+	// Implicit info (computed)
+	bool valid;
+	EdgeInfo() {}
+	EdgeInfo(bool o, bool v)
+	{
+		on = o;
+		valid = v;
 	}
 };
 
@@ -32,8 +47,13 @@ public:
 	int rows, cols;
 	int degH, degV; // Horizontal: for each row, Vertical: for each column
 	vector<double> knotsH, knotsV;
-	vector<vector<bool>> gridH, gridV;
+	vector<vector<EdgeInfo>> gridH, gridV;
 	vector<vector<VertexInfo>> gridPoints; // explicit and implicit vertex info
+
+	// Implicit (computed) information
+	bool validVertices; // true if all active vertices have valences 3-4 or 2 (straight)
+	bool isAD;
+	bool isAS;
 
 	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
@@ -41,6 +61,7 @@ public:
 	void assign(TMesh &tmesh);
 	bool meshFromFile(const string &path);
 	bool meshToFile(const string &path);
+	inline bool useVertex(int r, int c) const;
 
 	static bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
 	static bool validateKnots(const vector<double> &knots, int n, int deg);
@@ -69,8 +90,8 @@ public:
 	void freeGridSpheres();
 
 	bool useSphere(int r, int c) const;
-	const vector<vector<bool>> &getGridH() const { return mesh->gridH; }
-	const vector<vector<bool>> &getGridV() const { return mesh->gridV; }
+	const vector<vector<EdgeInfo>> &getGridH() const { return mesh->gridH; }
+	const vector<vector<EdgeInfo>> &getGridV() const { return mesh->gridV; }
 };
 
 class TriMesh {

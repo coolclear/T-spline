@@ -53,6 +53,7 @@ void TopologyViewer::draw()
 	static Color colorActive(1,1,1); // Active line (white)
 	static Color colorInactive(0.2,0.2,0.2); // Inactive line (dark gray)
 	static Color colorMark(0.5,0.5,0.5); // Marks for 1D-grid (gray)
+	static Color colorBad(1,0,0); // Bad line (red)
 
 	// Draw grid lines (1D or 2D)
 	const double sx = (_mesh->cols > 0) ? canvasLen / _mesh->cols : 0;
@@ -98,7 +99,7 @@ void TopologyViewer::draw()
 			else
 				glLineWidth(1);
 
-			if(_mesh->gridH[r][c]) // H-line active?
+			if(_mesh->gridH[r][c].on) // H-line active?
 				glColor3dv(&colorActive[0]);
 			else
 				glColor3dv(&colorInactive[0]);
@@ -107,6 +108,21 @@ void TopologyViewer::draw()
 			glVertex2d(c * sx + mx, r * sy + my);
 			glVertex2d((c + 1) * sx + mx, r * sy + my);
 			glEnd();
+
+			if(!_mesh->gridH[r][c].valid)
+			{
+				glColor3dv(&colorBad[0]);
+				glPushAttrib(GL_ENABLE_BIT);
+				// glPushAttrib is done to return everything to normal after drawing
+				glLineStipple(3, 0xAAAA);
+				glEnable(GL_LINE_STIPPLE);
+				glBegin(GL_LINES);
+				glVertex2d(c * sx + mx, r * sy + my);
+				glVertex2d((c + 1) * sx + mx, r * sy + my);
+				glEnd();
+
+				glPopAttrib();
+			}
 		}
 	}
 
@@ -121,7 +137,7 @@ void TopologyViewer::draw()
 			else
 				glLineWidth(1);
 
-			if(_mesh->gridV[r][c]) // V-line active?
+			if(_mesh->gridV[r][c].on) // V-line active?
 				glColor3dv(&colorActive[0]);
 			else
 				glColor3dv(&colorInactive[0]);
@@ -130,6 +146,21 @@ void TopologyViewer::draw()
 			glVertex2d(c * sx + mx, r * sy + my);
 			glVertex2d(c * sx + mx, (r + 1) * sy + my);
 			glEnd();
+
+			if(!_mesh->gridV[r][c].valid)
+			{
+				glColor3dv(&colorBad[0]);
+				glPushAttrib(GL_ENABLE_BIT);
+				// glPushAttrib is done to return everything to normal after drawing
+				glLineStipple(3, 0xAAAA);
+				glEnable(GL_LINE_STIPPLE);
+				glBegin(GL_LINES);
+				glVertex2d(c * sx + mx, r * sy + my);
+				glVertex2d(c * sx + mx, (r + 1) * sy + my);
+				glEnd();
+
+				glPopAttrib();
+			}
 		}
 	}
 
@@ -144,9 +175,9 @@ void TopologyViewer::draw()
 		glBegin(GL_POINTS);
 		FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
 		{
-			int vertexType = _mesh->gridPoints[r][c].type;
+			int vertexType = _mesh->gridPoints[r][c].valenceType;
 
-			if(vertexType != 0)
+			if(vertexType == -1 || vertexType == 3 || vertexType == 4)
 			{
 				if(vertexType == 3)
 					glColor3dv(&v3Color[0]);
@@ -176,13 +207,13 @@ int TopologyViewer::handle(int ev)
 		{
 			if(highlightDir == 1) // toggle the H-line
 			{
-				_mesh->gridH[highlightRow][highlightCol] =
-					!_mesh->gridH[highlightRow][highlightCol];
+				_mesh->gridH[highlightRow][highlightCol].on =
+					!_mesh->gridH[highlightRow][highlightCol].on;
 			}
 			else // highlightDir == 2, toggle the V-line
 			{
-				_mesh->gridV[highlightRow][highlightCol] =
-					!_mesh->gridV[highlightRow][highlightCol];
+				_mesh->gridV[highlightRow][highlightCol].on =
+					!_mesh->gridV[highlightRow][highlightCol].on;
 			}
 			_mesh->updateMeshInfo();
 
