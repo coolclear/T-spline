@@ -140,10 +140,10 @@ void TopologyViewer::draw()
 		{
 			// Make the line dashed
 			glPushAttrib(GL_ENABLE_BIT);
-			glLineStipple(5, 0xAAAA);
+			glLineStipple(6, 0xAAAA);
 			glEnable(GL_LINE_STIPPLE);
 
-			glLineWidth(2);
+			glLineWidth(1);
 			glBegin(GL_LINES);
 
 			// Draw a (dashed) line of an edge, isVert: H(0) or V(1)
