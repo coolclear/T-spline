@@ -14,11 +14,12 @@ static const double canvasLen = 1 - canvasMargin * 2;
 
 TopologyViewer::TopologyViewer(int x, int y, int w, int h, const char* l)
 : Fl_Gl_Window(x,y,w,h,l) {
-	Fl::repeat_timeout(REFRESH_RATE,TopologyViewer::updateCb,this);
 	_w = w;
 	_h = h;
 	_mesh = NULL;
 	this->border(5);
+
+	Fl::repeat_timeout(REFRESH_RATE,TopologyViewer::updateCb,this);
 }
 
 TopologyViewer::~TopologyViewer() {
@@ -53,7 +54,6 @@ void TopologyViewer::draw()
 	static Color colorActive(1,1,1); // Active line (white)
 	static Color colorInactive(0.2,0.2,0.2); // Inactive line (dark gray)
 	static Color colorMark(0.5,0.5,0.5); // Marks for 1D-grid (gray)
-	static Color colorBad(1,0,0); // Bad line (red)
 
 	// Draw grid lines (1D or 2D)
 	const double sx = (_mesh->cols > 0) ? canvasLen / _mesh->cols : 0;
@@ -69,7 +69,7 @@ void TopologyViewer::draw()
 	{
 		// Marks for H-lines
 		const double sx = canvasLen / _mesh->cols;
-		for(int c = 0; c <= _mesh->cols; ++c)
+		FOR(c,0,_mesh->cols + 1)
 		{
 			glVertex2d(c * sx + mx, 0.48);
 			glVertex2d(c * sx + mx, 0.52);
@@ -79,7 +79,7 @@ void TopologyViewer::draw()
 	{
 		// Marks for V-lines
 		const double sy = canvasLen / _mesh->rows;
-		for(int r = 0; r <= _mesh->rows; ++r)
+		FOR(r,0,_mesh->rows + 1)
 		{
 			glVertex2d(0.48, r * sy + my);
 			glVertex2d(0.52, r * sy + my);
@@ -89,107 +89,147 @@ void TopologyViewer::draw()
 
 
 	// Draw H-lines
-	for(int r = 0; r <= _mesh->rows; ++r)
+	FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
 	{
-		for(int c = 0; c < _mesh->cols; ++c)
-		{
-			// Thicken the highlighted line
-			if(highlightDir == 1 && r == highlightRow && c == highlightCol)
-				glLineWidth(3);
-			else
-				glLineWidth(1);
+		// Thicken the highlighted line
+		if(highlightDir == 1 && r == highlightRow && c == highlightCol)
+			glLineWidth(3);
+		else
+			glLineWidth(1);
 
-			if(_mesh->gridH[r][c].on) // H-line active?
-				glColor3dv(&colorActive[0]);
-			else
-				glColor3dv(&colorInactive[0]);
+		if(_mesh->gridH[r][c].on) // H-line active?
+			glColor3dv(&colorActive[0]);
+		else
+			glColor3dv(&colorInactive[0]);
 
-			glBegin(GL_LINES);
-			glVertex2d(c * sx + mx, r * sy + my);
-			glVertex2d((c + 1) * sx + mx, r * sy + my);
-			glEnd();
-
-			if(!_mesh->gridH[r][c].valid)
-			{
-				glColor3dv(&colorBad[0]);
-				glPushAttrib(GL_ENABLE_BIT);
-				// glPushAttrib is done to return everything to normal after drawing
-				glLineStipple(3, 0xAAAA);
-				glEnable(GL_LINE_STIPPLE);
-				glBegin(GL_LINES);
-				glVertex2d(c * sx + mx, r * sy + my);
-				glVertex2d((c + 1) * sx + mx, r * sy + my);
-				glEnd();
-
-				glPopAttrib();
-			}
-		}
+		glBegin(GL_LINES);
+		glVertex2d(c * sx + mx, r * sy + my);
+		glVertex2d((c + 1) * sx + mx, r * sy + my);
+		glEnd();
 	}
 
 	// Draw V-lines
-	for(int r = 0; r < _mesh->rows; ++r)
+	FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
 	{
-		for(int c = 0; c <= _mesh->cols; ++c)
-		{
-			// Thicken the highlighted line
-			if(highlightDir == 2 && r == highlightRow && c == highlightCol)
-				glLineWidth(3);
-			else
-				glLineWidth(1);
+		// Thicken the highlighted line
+		if(highlightDir == 2 && r == highlightRow && c == highlightCol)
+			glLineWidth(3);
+		else
+			glLineWidth(1);
 
-			if(_mesh->gridV[r][c].on) // V-line active?
-				glColor3dv(&colorActive[0]);
-			else
-				glColor3dv(&colorInactive[0]);
+		if(_mesh->gridV[r][c].on) // V-line active?
+			glColor3dv(&colorActive[0]);
+		else
+			glColor3dv(&colorInactive[0]);
 
-			glBegin(GL_LINES);
-			glVertex2d(c * sx + mx, r * sy + my);
-			glVertex2d(c * sx + mx, (r + 1) * sy + my);
-			glEnd();
-
-			if(!_mesh->gridV[r][c].valid)
-			{
-				glColor3dv(&colorBad[0]);
-				glPushAttrib(GL_ENABLE_BIT);
-				// glPushAttrib is done to return everything to normal after drawing
-				glLineStipple(3, 0xAAAA);
-				glEnable(GL_LINE_STIPPLE);
-				glBegin(GL_LINES);
-				glVertex2d(c * sx + mx, r * sy + my);
-				glVertex2d(c * sx + mx, (r + 1) * sy + my);
-				glEnd();
-
-				glPopAttrib();
-			}
-		}
+		glBegin(GL_LINES);
+		glVertex2d(c * sx + mx, r * sy + my);
+		glVertex2d(c * sx + mx, (r + 1) * sy + my);
+		glEnd();
 	}
 
-	// Draw vertices
-	glPointSize(6);
+
 	if(_mesh->rows * _mesh->cols > 0)
 	{
+		static Color colorBad(1, 0, 0); // Bad line (red)
+		static Color colorExtendH(0, 0.7, 0); // H-extension (green)
+		static Color colorExtendV(1, 0.5, 0); // V-extension (orange)
+
+		// Draw bad edges (red) and T-junction extensions (H:green, V:orange)
+		if(_mesh->validVertices)
+		{
+			// Make the line dashed
+			glPushAttrib(GL_ENABLE_BIT);
+			glLineStipple(5, 0xAAAA);
+			glEnable(GL_LINE_STIPPLE);
+
+			glLineWidth(2);
+			glBegin(GL_LINES);
+
+			// Draw a (dashed) line of an edge, isVert: H(0) or V(1)
+			auto drawLine = [&](EdgeInfo ei, int r, int c, bool isVert)
+			{
+				bool doDraw = false;
+				if(!ei.valid)
+				{
+					doDraw = true;
+					glColor3dv(&colorBad[0]);
+				}
+				else if(_mesh->isAD && ei.extend) // draw T-j.e. only if AD
+				{
+					doDraw = true;
+					if(isVert)
+						glColor3dv(&colorExtendV[0]);
+					else
+						glColor3dv(&colorExtendH[0]);
+				}
+
+				if(doDraw)
+				{
+					glVertex2d(c * sx + mx, r * sy + my);
+					glVertex2d((c + !isVert) * sx + mx, (r + isVert) * sy + my);
+				}
+			};
+
+			// Draw bad H-edges or H-T-junction extensions
+			FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
+				drawLine(_mesh->gridH[r][c], r, c, false);
+
+			// Draw bad V-edges or V-T-junction extensions
+			FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
+				drawLine(_mesh->gridV[r][c], r, c, true);
+
+			glEnd();
+			glPopAttrib();
+		}
+
+
+		// Draw vertices
 		Color v3Color(0.2, 1, 0.2); // green for valence 3
 		Color v4Color(0.2, 0.4, 1); // blue for valence 4
 		Color vBadColor(1, 0.2, 0.2); // red for bad vertices
 
+		glPointSize(6);
 		glBegin(GL_POINTS);
 		FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
 		{
 			int vertexType = _mesh->gridPoints[r][c].valenceType;
 
-			if(vertexType == -1 || vertexType == 3 || vertexType == 4)
+			if(vertexType == VALENCE_INVALID || vertexType >= 3)
 			{
 				if(vertexType == 3)
 					glColor3dv(&v3Color[0]);
 				else if(vertexType == 4)
 					glColor3dv(&v4Color[0]);
-				else // vertexType == -1, invalid node
+				else // vertexType == VALENCE_INVALID
 					glColor3dv(&vBadColor[0]);
 
 				glVertex2d(c * sx + mx, r * sy + my);
 			}
 		}
 		glEnd();
+
+
+		// Mark points that are intersections of V-H T-junction extensions
+		if(_mesh->validVertices && _mesh->isAD && !_mesh->isAS)
+		{
+			glLineWidth(2);
+			glColor3d(1, 0, 0); // red
+			glBegin(GL_LINES);
+			FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
+			{
+				if(_mesh->gridPoints[r][c].extendFlag == EXTENSION_BOTH)
+				{
+					const double x = c * sx + mx;
+					const double y = r * sy + my;
+					glVertex2d(x - 0.02, y);
+					glVertex2d(x + 0.02, y);
+					glVertex2d(x, y - 0.02);
+					glVertex2d(x, y + 0.02);
+				}
+			}
+			glEnd();
+		}
 	}
 
 	swap_buffers();

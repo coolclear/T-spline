@@ -42,6 +42,10 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 		knotsVInput = new Fl_Input(370, 95, 200, 20, "V knots: ");
 		knotsVButton = new Button(580, 95, 60, 20, "Update");
 		knotsVButton->callback(knotsVButtonCallback, this);
+
+		topStatLabel = new Fl_Box(310, 125, 330, 22);
+		topStatLabel->box(FL_FRAME_BOX);
+		//topStatLabel->
 	}
 	end();
 
@@ -53,6 +57,8 @@ TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 
 	//loadMesh("files/default.txt");
 	updatePanel();
+
+	Fl::repeat_timeout(REFRESH_RATE, TopologyWindow::updateTopologyStatus, this);
 }
 
 TopologyWindow::~TopologyWindow()
@@ -63,6 +69,7 @@ TopologyWindow::~TopologyWindow()
 	delete saveButton;
 	delete fileGroup;
 
+	delete topStatLabel;
 	delete knotsHInput;
 	delete knotsVInput;
 	delete knotsHButton;
@@ -231,4 +238,21 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 
 		printf("\nUpdated vertical knots\n");
 	}
+}
+
+void TopologyWindow::updateTopologyStatus(void* userdata)
+{
+	TopologyWindow *tw = (TopologyWindow *)userdata;
+	if(!tw || !tw->topStatLabel) return;
+
+	if(!tw->_mesh.validVertices)
+		tw->topStatLabel->label("Invalid Vertices");
+	else if(!tw->_mesh.isAD)
+		tw->topStatLabel->label("T-Mesh is not Admissible (AD)");
+	else if(!tw->_mesh.isAS)
+		tw->topStatLabel->label("T-Mesh is not Analysis-Suitable (AS)");
+	else
+		tw->topStatLabel->label("T-Mesh OK");
+
+	Fl::repeat_timeout(REFRESH_RATE, TopologyWindow::updateTopologyStatus, userdata);
 }

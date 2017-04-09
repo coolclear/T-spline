@@ -9,6 +9,22 @@
 
 typedef pair<Sphere*,Operator*> PSO;
 
+enum ValenceType {VALENCE_INVALID = -1};
+enum ValenceBits
+{
+	VALENCE_BIT_UP = 1,
+	VALENCE_BIT_DOWN = 2,
+	VALENCE_BIT_LEFT = 4,
+	VALENCE_BIT_RIGHT = 8
+};
+enum ExtensionBits
+{
+	EXTENSION_HORIZONTAL = 1,
+	EXTENSION_VERTICAL = 2,
+	// Denotes an intersection of V-H T-junction extensions
+	EXTENSION_BOTH = 3
+};
+
 struct VertexInfo
 {
 	// Explicit info (input)
@@ -32,11 +48,13 @@ struct EdgeInfo
 	bool on;
 	// Implicit info (computed)
 	bool valid;
+	bool extend; // whether part of H(0) or V(1) T-junction extensions
 	EdgeInfo() {}
-	EdgeInfo(bool o, bool v)
+	EdgeInfo(bool o)
 	{
 		on = o;
-		valid = v;
+		valid = true;
+		extend = false;
 	}
 };
 
@@ -68,6 +86,11 @@ public:
 	static bool checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg);
 
 	void updateMeshInfo();
+
+private:
+	void markExtension(int r0, int c0, int dr, int dc, int steps, bool isVert);
+	inline bool isWithinGrid(int r, int c) const;
+	inline bool isSkipped(int r, int c, bool isVert) const;
 };
 
 class TMeshScene : public SceneInfo

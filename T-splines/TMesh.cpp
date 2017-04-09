@@ -82,8 +82,8 @@ TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 	}
 
 	// Make the full grid initially
-	gridH.assign(rows + 1, vector<EdgeInfo>(cols, EdgeInfo(true, true)));
-	gridV.assign(cols, vector<EdgeInfo>(cols + 1, EdgeInfo(true, true)));
+	gridH.assign(rows + 1, vector<EdgeInfo>(cols, EdgeInfo(true)));
+	gridV.assign(cols, vector<EdgeInfo>(cols + 1, EdgeInfo(true)));
 
 	// Assign some uniform coordinates initially
 	gridPoints.resize(rows + 1, vector<VertexInfo>(cols + 1));
@@ -413,8 +413,73 @@ bool TMesh::meshToFile(const string &path)
 #undef separator
 }
 
+
+
+inline bool TMesh::isWithinGrid(int r, int c) const
+{
+	return r >= 0 && r <= rows && c >= 0 && c <= cols;
+}
+
+inline bool TMesh::useVertex(int r, int c) const
+{
+	return isWithinGrid(r, c) && gridPoints[r][c].valenceType >= 3;
+}
+
+// Whether the current vertex (r,c) is skipped (depending on 'isVert')
+inline bool TMesh::isSkipped(int r, int c, bool isVert) const
+{
+	const int bits = gridPoints[r][c].valenceBits;
+	return (isVert && bits == 0b0011) ||
+		(!isVert && bits == 0b1100) ||
+		gridPoints[r][c].valenceType == 0;
+}
+
+// Mark vertices along the extension line (degrees - 1 steps forward, 1 step backward)
+void TMesh::markExtension(int r0, int c0, int dr, int dc, int fwSteps, bool isVert)
+{
+	const int val = isVert ? EXTENSION_VERTICAL : EXTENSION_HORIZONTAL;
+	int r = r0;
+	int c = c0;
+
+	// Mark from the T-junction (e.g., up for T, left for |-)
+	while(fwSteps >= 0 && isWithinGrid(r, c))
+	{
+		gridPoints[r][c].extendFlag |= val;
+		if(isVert)
+			gridV[r - max(dr, 0)][c].extend = true;
+		else
+			gridH[r][c - max(dc, 0)].extend = true;
+
+		if(!isSkipped(r, c, isVert))
+			--fwSteps;
+		r += dr;
+		c += dc;
+	}
+
+	// Mark back one step (e.g., down for T, right for |-)
+	r = r0 - dr;
+	c = c0 - dc;
+	while(isWithinGrid(r, c))
+	{
+		gridPoints[r][c].extendFlag |= val;
+		if(isVert)
+			gridV[r + min(dr, 0)][c].extend = true;
+		else
+			gridH[r][c + min(dc, 0)].extend = true;
+
+		if(!isSkipped(r, c, isVert))
+			break;
+		r -= dr;
+		c -= dc;
+	}
+}
+
 /*
  * Update implicit mesh information that is computed but not input
+ * and also verify if
+ *  1) vertices and edges are in good shape
+ *  2) whether the T-mesh is admissible (AD)
+ *  3) whether the T-mesh is analysis-suitable (AS)
  * The calling thread should lock the mutex before calling
  */
 void TMesh::updateMeshInfo()
@@ -424,16 +489,16 @@ void TMesh::updateMeshInfo()
 	FOR(r,0,rows + 1) FOR(c,0,cols + 1)
 	{
 		int &valenceBits = gridPoints[r][c].valenceBits; // 0-3: directions UDLR
-		int &valenceType = gridPoints[r][c].valenceType; // 0:don't draw, 3-4:valence
+		int &valenceType = gridPoints[r][c].valenceType; // 0:don't draw, 2-4:valence
 		valenceBits = 0;
 		valenceType = 0;
 		gridPoints[r][c].extendFlag = 0;
 
 		int boundaryCount = 0;
-		boundaryCount += (r == 0); // top
-		boundaryCount += (r == rows); // bottom
-		boundaryCount += (c == 0); // left
-		boundaryCount += (c == cols); // right
+		boundaryCount += (r == 0); // top row?
+		boundaryCount += (r == rows); // bottom row?
+		boundaryCount += (c == 0); // leftmost column?
+		boundaryCount += (c == cols); // rightmost column?
 
 		int valenceCount = 0;
 		auto addBit = [&](int b, int val)
@@ -441,13 +506,13 @@ void TMesh::updateMeshInfo()
 			if(val)
 			{
 				++valenceCount;
-				valenceBits |= 1 << b;
+				valenceBits |= b;
 			}
 		};
-		addBit(0, r > 0 && gridV[r-1][c].on); // up
-		addBit(1, r < rows && gridV[r][c].on); // down
-		addBit(2, c > 0 && gridH[r][c-1].on); // left
-		addBit(3, c < cols && gridH[r][c].on); // right
+		addBit(VALENCE_BIT_UP, r > 0 && gridV[r-1][c].on); // up
+		addBit(VALENCE_BIT_DOWN, r < rows && gridV[r][c].on); // down
+		addBit(VALENCE_BIT_LEFT, c > 0 && gridH[r][c-1].on); // left
+		addBit(VALENCE_BIT_RIGHT, c < cols && gridH[r][c].on); // right
 
 		if(boundaryCount == 0) // inner vertices
 		{
@@ -459,7 +524,7 @@ void TMesh::updateMeshInfo()
 				valenceType = 2; // vertical or horizontal lines
 			else
 			{
-				valenceType = -1;
+				valenceType = VALENCE_INVALID;
 				validVertices = false; // no longer consider AD or AS
 			}
 		}
@@ -477,9 +542,22 @@ void TMesh::updateMeshInfo()
 
 	// Validate edges (only if vertices are fine)
 	FOR(r,0,rows + 1) FOR(c,0,cols)
+	{
 		gridH[r][c].valid = true;
+		gridH[r][c].extend = false;
+	}
 	FOR(r,0,rows) FOR(c,0,cols + 1)
+	{
 		gridV[r][c].valid = true;
+		gridV[r][c].extend = false;
+	}
+
+	// Don't check if doing curves (1D)
+	if(rows * cols == 0)
+	{
+		isAD = isAS = true;
+		return;
+	}
 
 	// Check whether the mesh is AD (before checking AS)
 	if(!validVertices)
@@ -498,7 +576,7 @@ void TMesh::updateMeshInfo()
 			FOR(c,0,cols + 1)
 			{
 				int type = gridPoints[r][c].valenceType;
-				if(type <= 0)
+				if(type <= 0) // only consider full (4), T (3), horizontal (2), or vertical (2)
 					continue;
 				if(lastC >= 0)
 				{
@@ -521,7 +599,7 @@ void TMesh::updateMeshInfo()
 			FOR(r,0,rows + 1)
 			{
 				int type = gridPoints[r][c].valenceType;
-				if(type <= 0)
+				if(type <= 0) // only consider full (4), T (3), horizontal (2), or vertical (2)
 					continue;
 				if(lastR >= 0)
 				{
@@ -545,16 +623,41 @@ void TMesh::updateMeshInfo()
 	{
 		isAS = true; // may turn out to be false after checking
 
-		// TODO NEXT
-	}
-}
+		// Compute T-junction extensions (ignore boundary vertices)
+		FOR(r,1,rows) FOR(c,1,cols)
+		{
+			// Only consider T-junctions
+			if(gridPoints[r][c].valenceType != 3)
+				continue;
 
-bool TMesh::useVertex(int r, int c) const
-{
-	if(r >= 0 && r <= rows && c >= 0 && c <= cols && gridPoints[r][c].valenceType >= 3)
-		return true;
-	else
-		return false;
+			switch(gridPoints[r][c].valenceBits)
+			{
+			case 0b1110: // T
+				markExtension(r, c, -1, 0, degV - 1, true);
+				break;
+			case 0b1101: // _|_
+				markExtension(r, c, 1, 0, degV - 1, true);
+				break;
+			case 0b1011: // |-
+				markExtension(r, c, 0, -1, degH - 1, false);
+				break;
+			case 0b0111: // -|
+				markExtension(r, c, 0, 1, degH - 1, false);
+				break;
+			}
+		}
+
+		FOR(r,0,rows + 1) FOR(c,0,cols + 1)
+		{
+			if(gridPoints[r][c].extendFlag == EXTENSION_BOTH)
+			{
+				isAS = false;
+				goto doneAS;
+			}
+		}
+
+		doneAS:;
+	}
 }
 
 

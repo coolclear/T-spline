@@ -28,6 +28,7 @@ protected:
 	Button *loadButton;
 	Button *saveButton;
 
+	Fl_Box *topStatLabel;
 	Fl_Input *knotsHInput;
 	Fl_Input *knotsVInput;
 	Button *knotsHButton;
@@ -53,6 +54,7 @@ protected:
 	static void saveButtonCallback(Fl_Widget* widget, void* userdata);
 	static void knotsHButtonCallback(Fl_Widget* widget, void* userdata);
 	static void knotsVButtonCallback(Fl_Widget* widget, void* userdata);
+	static void updateTopologyStatus(void* userdata);
 
 	static void exitButtonCb(Fl_Widget* widget, void* win) { exit(0); }
 	static void escapeButtonCb(Fl_Widget* widget, void* win) {}
