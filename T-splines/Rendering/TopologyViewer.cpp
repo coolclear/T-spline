@@ -61,6 +61,11 @@ void TopologyViewer::draw()
 	const double mx = (_mesh->cols > 0) ? canvasMargin : 0.5;
 	const double my = (_mesh->rows > 0) ? canvasMargin : 0.5;
 
+	auto gridVertex2d = [&](double r, double c)
+	{
+		glVertex2d(c * sx + mx, r * sy + my);
+	};
+
 	glLineWidth(1);
 	glBegin(GL_LINES);
 	// Draw marks for 1D-grid
@@ -92,7 +97,7 @@ void TopologyViewer::draw()
 	FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
 	{
 		// Thicken the highlighted line
-		if(highlightDir == 1 && r == highlightRow && c == highlightCol)
+		if(highlightDir == 1 and r == highlightRow and c == highlightCol)
 			glLineWidth(3);
 		else
 			glLineWidth(1);
@@ -103,8 +108,8 @@ void TopologyViewer::draw()
 			glColor3dv(&colorInactive[0]);
 
 		glBegin(GL_LINES);
-		glVertex2d(c * sx + mx, r * sy + my);
-		glVertex2d((c + 1) * sx + mx, r * sy + my);
+		gridVertex2d(r, c);
+		gridVertex2d(r, c + 1);
 		glEnd();
 	}
 
@@ -112,7 +117,7 @@ void TopologyViewer::draw()
 	FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
 	{
 		// Thicken the highlighted line
-		if(highlightDir == 2 && r == highlightRow && c == highlightCol)
+		if(highlightDir == 2 and r == highlightRow and c == highlightCol)
 			glLineWidth(3);
 		else
 			glLineWidth(1);
@@ -123,8 +128,8 @@ void TopologyViewer::draw()
 			glColor3dv(&colorInactive[0]);
 
 		glBegin(GL_LINES);
-		glVertex2d(c * sx + mx, r * sy + my);
-		glVertex2d(c * sx + mx, (r + 1) * sy + my);
+		gridVertex2d(r, c);
+		gridVertex2d(r + 1, c);
 		glEnd();
 	}
 
@@ -155,7 +160,7 @@ void TopologyViewer::draw()
 					doDraw = true;
 					glColor3dv(&colorBad[0]);
 				}
-				else if(_mesh->isAD && ei.extend) // draw T-j.e. only if AD
+				else if(_mesh->isAD and ei.extend) // draw T-j.e. only if AD
 				{
 					doDraw = true;
 					if(isVert)
@@ -166,8 +171,8 @@ void TopologyViewer::draw()
 
 				if(doDraw)
 				{
-					glVertex2d(c * sx + mx, r * sy + my);
-					glVertex2d((c + !isVert) * sx + mx, (r + isVert) * sy + my);
+					gridVertex2d(r, c);
+					gridVertex2d(r + isVert, c + not isVert);
 				}
 			};
 
@@ -195,7 +200,7 @@ void TopologyViewer::draw()
 		{
 			int vertexType = _mesh->gridPoints[r][c].valenceType;
 
-			if(vertexType == VALENCE_INVALID || vertexType >= 3)
+			if(vertexType == VALENCE_INVALID or vertexType >= 3)
 			{
 				if(vertexType == 3)
 					glColor3dv(&v3Color[0]);
@@ -204,14 +209,14 @@ void TopologyViewer::draw()
 				else // vertexType == VALENCE_INVALID
 					glColor3dv(&vBadColor[0]);
 
-				glVertex2d(c * sx + mx, r * sy + my);
+				gridVertex2d(r, c);
 			}
 		}
 		glEnd();
 
 
 		// Mark points that are intersections of V-H T-junction extensions
-		if(_mesh->validVertices && _mesh->isAD && !_mesh->isAS)
+		if(_mesh->validVertices and _mesh->isAD and not _mesh->isAS)
 		{
 			glLineWidth(2);
 			glColor3d(1, 0, 0); // red
@@ -230,6 +235,175 @@ void TopologyViewer::draw()
 			}
 			glEnd();
 		}
+
+		// Display the tiled floor of an anchor or the blending points for a unit element
+		if(_mesh->validVertices and _mesh->isAD and _mesh->isAS and highlightDir >= 3)
+		{
+			auto getTiledFloorRange = [&](const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max)
+			{
+				auto onVSkel = [&](int r0)
+				{
+					return _mesh->gridPoints[r0][c].valenceType >= 3 or _mesh->gridPoints[r0][c].valenceBits == 12;
+				};
+				auto onHSkel = [&](int c0)
+				{
+					return _mesh->gridPoints[r][c0].valenceType >= 3 or _mesh->gridPoints[r][c0].valenceBits == 3;
+				};
+				r_min = r_max = r;
+				c_min = c_max = c;
+				FOR(k,0,2)
+				{
+					while(--r_min >= 0 and not onVSkel(r_min));
+					while(++r_max <= _mesh->rows and not onVSkel(r_max));
+					while(--c_min >= 0 and not onHSkel(c_min));
+					while(++c_max <= _mesh->cols and not onHSkel(c_max));
+				}
+				r_min = max(r_min, 0);
+				r_max = min(r_max, _mesh->rows);
+				c_min = max(c_min, 0);
+				c_max = min(c_max, _mesh->cols);
+			};
+
+			// Mark the point at which the cursor is pointing
+			if(highlightDir == 3)
+			{
+				glPointSize(6);
+				glBegin(GL_POINTS);
+				glColor3d(1,0,1);
+				gridVertex2d(highlightRow, highlightCol);
+				glEnd();
+
+				int r_min, r_max, c_min, c_max;
+				getTiledFloorRange(highlightRow, highlightCol, r_min, r_max, c_min, c_max);
+
+				glColor3d(1,0,1);
+				glLineWidth(2);
+				glBegin(GL_LINE_LOOP);
+				gridVertex2d(r_min, c_min);
+				gridVertex2d(r_min, c_max);
+				gridVertex2d(r_max, c_max);
+				gridVertex2d(r_max, c_min);
+				glEnd();
+			}
+
+
+			// Mark the unit element at which the cursor is pointing
+			if(highlightDir == 4)
+			{
+				vector<pair<int,int>> blendP;
+				bool row_n_4, col_n_4;
+				_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
+
+				// Test: use tiled floors
+				glPointSize(10);
+				glBegin(GL_POINTS);
+				glColor3d(1,0.1,0);
+				for(auto& p: blendP)
+				{
+					double r {double(p._1)};
+					double c {double(p._2)};
+					r = max(-0.1, min(_mesh->rows + 0.1, r));
+					c = max(-0.1, min(_mesh->cols + 0.1, c));
+					gridVertex2d(r, c);
+				}
+				glEnd();
+
+				double r0, r1, c0, c1;
+				const double margin_small {0.1};
+				const double margin_large {0.4};
+
+				// Color green if the unit element is renderable, red otherwise
+				if(row_n_4 or col_n_4) glColor3d(0,0.4,0);
+				else glColor3d(0.4,0,0);
+
+				// Show which directions the unit element can be rendered first
+				if(row_n_4 == col_n_4)
+				{
+					r0 = highlightRow + margin_small;
+					c0 = highlightCol + margin_small;
+					r1 = highlightRow + 1 - margin_small;
+					c1 = highlightCol + 1 - margin_small;
+				}
+				else if(row_n_4)
+				{
+					r0 = highlightRow + margin_large;
+					c0 = highlightCol + margin_small;
+					r1 = highlightRow + 1 - margin_large;
+					c1 = highlightCol + 1 - margin_small;
+				}
+				else // if(col_n_4)
+				{
+					r0 = highlightRow + margin_small;
+					c0 = highlightCol + margin_large;
+					r1 = highlightRow + 1 - margin_small;
+					c1 = highlightCol + 1 - margin_large;
+				}
+
+				glBegin(GL_QUADS);
+				gridVertex2d(r0, c0);
+				gridVertex2d(r1, c0);
+				gridVertex2d(r1, c1);
+				gridVertex2d(r0, c1);
+				glEnd();
+
+/*
+				// Simplest: only if all 16 points are present
+				bool simplestOk {true};
+				FOR(dr,-1,3) FOR(dc,-1,3)
+				{
+					int r {highlightRow + dr};
+					int c {highlightCol + dc};
+					if(r >= 0 and r <= _mesh->rows and c >= 0 and c <= _mesh->cols)
+					{
+						int vertexType = _mesh->gridPoints[r][c].valenceType;
+						if(vertexType < 3) simplestOk = false;
+					}
+					else simplestOk = false;
+				}
+				if(simplestOk)
+				{
+					glPointSize(10);
+					glBegin(GL_POINTS);
+					glColor3d(1,0.5,0);
+					FOR(r,-1,3) FOR(c,-1,3)
+					{
+						gridVertex2d(highlightRow + r, highlightCol + c);
+					}
+					glEnd();
+				}
+				else
+				{
+					// Test: use tiled floors
+					glPointSize(10);
+					glBegin(GL_POINTS);
+					glColor3d(1,0.1,0);
+					FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
+					{
+						// ignore non-vertex
+						if(_mesh->gridPoints[r][c].valenceType < 3) continue;
+
+						int r_min, r_max, c_min, c_max;
+						getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
+
+						if(r_min <= highlightRow and highlightRow < r_max and
+								c_min <= highlightCol and highlightCol < c_max)
+						{
+							gridVertex2d(r, c);
+						}
+					}
+					glEnd();
+				}
+
+				glBegin(GL_QUADS);
+				glColor3d(0,0.4,0);
+				gridVertex2d(highlightRow + 0.1, highlightCol + 0.1);
+				gridVertex2d(highlightRow + 0.9, highlightCol + 0.1);
+				gridVertex2d(highlightRow + 0.9, highlightCol + 0.9);
+				gridVertex2d(highlightRow + 0.1, highlightCol + 0.9);
+				glEnd();
+//*/
+			}
+		}
 	}
 
 	swap_buffers();
@@ -243,14 +417,14 @@ int TopologyViewer::handle(int ev)
 {
 	if(ev==FL_PUSH)
 	{
-		if(Fl::event_button() == FL_LEFT_MOUSE && highlightDir != 0)
+		if(Fl::event_button() == FL_LEFT_MOUSE and (highlightDir == 1 or highlightDir == 2))
 		{
 			if(highlightDir == 1) // toggle the H-line
 			{
 				_mesh->gridH[highlightRow][highlightCol].on =
 					!_mesh->gridH[highlightRow][highlightCol].on;
 			}
-			else // highlightDir == 2, toggle the V-line
+			else if(highlightDir == 2) // toggle the V-line
 			{
 				_mesh->gridV[highlightRow][highlightCol].on =
 					!_mesh->gridV[highlightRow][highlightCol].on;
@@ -259,7 +433,11 @@ int TopologyViewer::handle(int ev)
 
 			// Reflect changes to the rendered scene
 			if(_parent)
+			{
 				_parent->updateControlPoints();
+				if(_mesh->isAS)
+					_parent->updateSurface();
+			}
 		}
 		return 1;  // must return 1 here to ensure FL_PUSH? is sent
 	}
@@ -286,17 +464,22 @@ int TopologyViewer::handle(int ev)
 			// Consider highlighting only when the cursor is not at a gridpoint
 			if(pointDist2 > 0.0001) // note that squared distance
 			{
+				// ignore topmost and bottommost H-lines
+				bool roundedRowIn {roundedRow > 0 and roundedRow < _mesh->rows};
+				// ignore leftmost and rightmost V-lines
+				bool roundedColIn {roundedCol > 0 and roundedCol < _mesh->cols};
+				// ignore lines outside T-mesh
+				bool cursorRowIn {cursorRow > 0 and cursorRow < _mesh->rows};
+				// ignore lines outside T-mesh
+				bool cursorColIn {cursorCol > 0 and cursorCol < _mesh->cols};
+
 				// Find the closest H-grid line
 				double distH = 10;
-				if(roundedRow > 0 && roundedRow < _mesh->rows && // ignore topmost and bottommost H-lines
-					cursorCol > 0 && cursorCol < _mesh->cols) // ignore lines outside T-mesh
-					distH = abs(rowY - cursorPoint[1]);
+				if(roundedRowIn and cursorColIn) distH = abs(rowY - cursorPoint[1]);
 
 				// Find the closest V-grid line
 				double distV = 10;
-				if(roundedCol > 0 && roundedCol < _mesh->cols && // ignore leftmost and rightmost V-lines
-					cursorRow > 0 && cursorRow < _mesh->rows) // ignore lines outside T-mesh
-					distV = abs(rowX - cursorPoint[0]);
+				if(roundedColIn and cursorRowIn) distV = abs(rowX - cursorPoint[0]);
 
 				if(min<double>(distH,distV) < 0.02)
 				{
@@ -313,6 +496,23 @@ int TopologyViewer::handle(int ev)
 						highlightCol = roundedCol;
 					}
 				}
+				else if(cursorRowIn and cursorColIn)
+				{
+					highlightDir = 4;
+					highlightRow = (int) floor(cursorRow);
+					highlightCol = (int) floor(cursorCol);
+//					printf("pointing at (%d, %d)\n", highlightRow, highlightCol);
+//					printf("rows %d cols %d\n", _mesh->rows, _mesh->cols);
+				}
+			}
+			else if(0 <= roundedRow and roundedRow <= _mesh->rows and
+					0 <= roundedCol and roundedCol <= _mesh->cols and
+					_mesh->gridPoints[roundedRow][roundedCol].valenceType >= 3)
+			{
+//				printf("pointing at (%d, %d)\n", roundedRow, roundedCol);
+				highlightDir = 3;
+				highlightRow = roundedRow;
+				highlightCol = roundedCol;
 			}
 		}
 	}

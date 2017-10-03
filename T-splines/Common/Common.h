@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <cmath>
+#include <ciso646>
 
 #include "Matrix.h"
 #include "Rendering/ArcBall.h"
@@ -21,6 +22,10 @@
 #endif
 
 #define REFRESH_RATE .01
+
+#undef min
+#undef max
+
 
 using namespace std;
 

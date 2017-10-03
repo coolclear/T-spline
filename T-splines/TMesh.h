@@ -79,18 +79,21 @@ public:
 	void assign(TMesh &tmesh);
 	bool meshFromFile(const string &path);
 	bool meshToFile(const string &path);
-	inline bool useVertex(int r, int c) const;
+	bool useVertex(int r, int c) const;
+	void cap(int& r, int& c) const;
 
 	static bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
 	static bool validateKnots(const vector<double> &knots, int n, int deg);
 	static bool checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg);
 
 	void updateMeshInfo();
+	void getTiledFloorRange(const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max) const;
+	void get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const;
 
 private:
 	void markExtension(int r0, int c0, int dr, int dc, int steps, bool isVert);
-	inline bool isWithinGrid(int r, int c) const;
-	inline bool isSkipped(int r, int c, bool isVert) const;
+	bool isWithinGrid(int r, int c) const;
+	bool isSkipped(int r, int c, bool isVert) const;
 };
 
 class TMeshScene : public SceneInfo
@@ -201,7 +204,8 @@ protected:
 	bool useCurve;
 
 	void setCurve(vector<pair<Pt3, int>> points);
-	void setMesh(const VVP3 &S);
+	void setMesh(const VVP3& S);
+	void setMesh2(const vector<VVP3>& S);
 
 public:
 	TriMeshScene();

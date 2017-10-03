@@ -9,7 +9,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-TMesh TopologyWindow::_mesh(7, 7, 3, 3);
+TMesh TopologyWindow::_mesh(4, 6, 3, 3);
 
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
@@ -173,7 +173,7 @@ void TopologyWindow::saveButtonCallback(Fl_Widget* widget, void* userdata)
 void TopologyWindow::knotsHButtonCallback(Fl_Widget* widget, void* userdata)
 {
 	TopologyWindow *topology = (TopologyWindow*)userdata;
-	if(topology && topology->knotsHInput)
+	if(topology and topology->knotsHInput)
 	{
 		vector<double> knotsH;
 		if(!parseDoubles(topology->knotsHInput->value(), knotsH))
@@ -208,7 +208,7 @@ void TopologyWindow::knotsHButtonCallback(Fl_Widget* widget, void* userdata)
 void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 {
 	TopologyWindow *topology = (TopologyWindow*)userdata;
-	if(topology && topology->knotsVInput)
+	if(topology and topology->knotsVInput)
 	{
 		vector<double> knotsV;
 		if(!parseDoubles(topology->knotsVInput->value(), knotsV))
@@ -243,7 +243,7 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 void TopologyWindow::updateTopologyStatus(void* userdata)
 {
 	TopologyWindow *tw = (TopologyWindow *)userdata;
-	if(!tw || !tw->topStatLabel) return;
+	if(!tw or !tw->topStatLabel) return;
 
 	if(!tw->_mesh.validVertices)
 		tw->topStatLabel->label("Invalid Vertices");

@@ -8,17 +8,22 @@ inline bool TMesh::validateDimensionsAndDegrees(int r, int c, int degV, int degH
 {
 	const int rcLimit = 10000; // Limit up to 10^4 cells
 	// Check for invalid dimensions
-	if(!(r >= 0 && c >= 0 && r + c >= 1 && r * c <= rcLimit))
+	if(!(r >= 0 and c >= 0 and r + c >= 1 and r * c <= rcLimit))
 		return false;
 
 	// Degrees: must be 0 if dim = 0, and must be within [1,dim] if dim > 0
 	// Check for invalid vertical degrees (with row numbers)
-	if(!((r > 0 && 1 <= degV && degV <= r) || (r == 0 && degV == 0)))
+	if(!((r > 0 and 1 <= degV and degV <= r) or (r == 0 and degV == 0)))
 		return false;
 
 	// Check for invalid horizontal degrees (with column numbers)
-	if(!((c > 0 && 1 <= degH && degH <= c) || (c == 0 && degH == 0)))
+	if(!((c > 0 and 1 <= degH and degH <= c) or (c == 0 and degH == 0)))
 		return false;
+
+	// (For now) Restrict the surface degrees to be (3,3)
+	if(degH != 3 or degV != 3)
+		return false;
+
 	return true;
 }
 
@@ -46,7 +51,7 @@ bool TMesh::checkDuplicateAtKnotEnds(const vector<double> &knots, int n, int deg
 	else
 	{
 		// Deal with precision errors and assume monotonicity
-		return knots[0] + 1e-9 > knots[deg - 1] && knots[n] + 1e-9 > knots[n + deg - 1];
+		return knots[0] + 1e-9 > knots[deg - 1] and knots[n] + 1e-9 > knots[n + deg - 1];
 	}
 }
 
@@ -83,7 +88,7 @@ TMesh::TMesh(int r, int c, int dv, int dh, bool autoFill)
 
 	// Make the full grid initially
 	gridH.assign(rows + 1, vector<EdgeInfo>(cols, EdgeInfo(true)));
-	gridV.assign(cols, vector<EdgeInfo>(cols + 1, EdgeInfo(true)));
+	gridV.assign(rows, vector<EdgeInfo>(cols + 1, EdgeInfo(true)));
 
 	// Assign some uniform coordinates initially
 	gridPoints.resize(rows + 1, vector<VertexInfo>(cols + 1));
@@ -172,7 +177,7 @@ bool TMesh::meshFromFile(const string &path)
 			{
 				int bit = -1;
 				fs >> bit;
-				if(!fs.good() || bit < 0 || bit > 1)
+				if(!fs.good() or bit < 0 or bit > 1)
 				{
 					fprintf(stderr, "Failed to read horizontal grid info\n");
 					return false;
@@ -187,7 +192,7 @@ bool TMesh::meshFromFile(const string &path)
 			{
 				int bit = -1;
 				fs >> bit;
-				if(!fs.good() || bit < 0 || bit > 1)
+				if(!fs.good() or bit < 0 or bit > 1)
 				{
 					fprintf(stderr, "Failed to read vertical grid info\n");
 					return false;
@@ -203,7 +208,7 @@ bool TMesh::meshFromFile(const string &path)
 		{
 			int dupBit = -1, lb, ub;
 			fs >> dupBit;
-			if(!fs.good() || dupBit < 0 || dupBit > 1)
+			if(!fs.good() or dupBit < 0 or dupBit > 1)
 			{
 				fprintf(stderr, "Bad flag for horizontal knot values\n");
 				return false;
@@ -246,7 +251,7 @@ bool TMesh::meshFromFile(const string &path)
 		{
 			int dupBit = -1, lb, ub;
 			fs >> dupBit;
-			if(!fs.good() || dupBit < 0 || dupBit > 1)
+			if(!fs.good() or dupBit < 0 or dupBit > 1)
 			{
 				fprintf(stderr, "Bad flag for vertical knot values\n");
 				return false;
@@ -415,23 +420,29 @@ bool TMesh::meshToFile(const string &path)
 
 
 
-inline bool TMesh::isWithinGrid(int r, int c) const
+bool TMesh::isWithinGrid(int r, int c) const
 {
-	return r >= 0 && r <= rows && c >= 0 && c <= cols;
+	return r >= 0 and r <= rows and c >= 0 and c <= cols;
 }
 
-inline bool TMesh::useVertex(int r, int c) const
+bool TMesh::useVertex(int r, int c) const
 {
-	return isWithinGrid(r, c) && gridPoints[r][c].valenceType >= 3;
+	return isWithinGrid(r, c) and gridPoints[r][c].valenceType >= 3;
 }
 
 // Whether the current vertex (r,c) is skipped (depending on 'isVert')
-inline bool TMesh::isSkipped(int r, int c, bool isVert) const
+bool TMesh::isSkipped(int r, int c, bool isVert) const
 {
 	const int bits = gridPoints[r][c].valenceBits;
-	return (isVert && bits == 0b0011) ||
-		(!isVert && bits == 0b1100) ||
+	return (isVert and bits == 0b0011) or
+		(!isVert and bits == 0b1100) or
 		gridPoints[r][c].valenceType == 0;
+}
+
+void TMesh::cap(int& r, int& c) const
+{
+	r = max(0, min(rows, r));
+	c = max(0, min(cols, c));
 }
 
 // Mark vertices along the extension line (degrees - 1 steps forward, 1 step backward)
@@ -442,7 +453,7 @@ void TMesh::markExtension(int r0, int c0, int dr, int dc, int fwSteps, bool isVe
 	int c = c0;
 
 	// Mark from the T-junction (e.g., up for T, left for |-)
-	while(fwSteps >= 0 && isWithinGrid(r, c))
+	while(fwSteps >= 0 and isWithinGrid(r, c))
 	{
 		gridPoints[r][c].extendFlag |= val;
 		if(isVert)
@@ -509,10 +520,10 @@ void TMesh::updateMeshInfo()
 				valenceBits |= b;
 			}
 		};
-		addBit(VALENCE_BIT_UP, r > 0 && gridV[r-1][c].on); // up
-		addBit(VALENCE_BIT_DOWN, r < rows && gridV[r][c].on); // down
-		addBit(VALENCE_BIT_LEFT, c > 0 && gridH[r][c-1].on); // left
-		addBit(VALENCE_BIT_RIGHT, c < cols && gridH[r][c].on); // right
+		addBit(VALENCE_BIT_UP, r > 0 and gridV[r-1][c].on); // up
+		addBit(VALENCE_BIT_DOWN, r < rows and gridV[r][c].on); // down
+		addBit(VALENCE_BIT_LEFT, c > 0 and gridH[r][c-1].on); // left
+		addBit(VALENCE_BIT_RIGHT, c < cols and gridH[r][c].on); // right
 
 		if(boundaryCount == 0) // inner vertices
 		{
@@ -520,7 +531,7 @@ void TMesh::updateMeshInfo()
 				valenceType = valenceCount;
 			else if(valenceCount == 0)
 				valenceType = 0; // no line
-			else if(valenceCount == 2 && (valenceBits == 3 || valenceBits == 12))
+			else if(valenceCount == 2 and (valenceBits == 3 or valenceBits == 12))
 				valenceType = 2; // vertical or horizontal lines
 			else
 			{
@@ -580,7 +591,7 @@ void TMesh::updateMeshInfo()
 					continue;
 				if(lastC >= 0)
 				{
-					if(type == 3 && gridPoints[r][lastC].valenceType == 3 &&
+					if(type == 3 and gridPoints[r][lastC].valenceType == 3 and
 						!gridH[r][c-1].on)
 					{
 						FOR(i,lastC,c)
@@ -603,7 +614,7 @@ void TMesh::updateMeshInfo()
 					continue;
 				if(lastR >= 0)
 				{
-					if(type == 3 && gridPoints[lastR][c].valenceType == 3 &&
+					if(type == 3 and gridPoints[lastR][c].valenceType == 3 and
 						!gridV[r-1][c].on)
 					{
 						FOR(i,lastR,r)
@@ -660,6 +671,72 @@ void TMesh::updateMeshInfo()
 	}
 }
 
+void TMesh::getTiledFloorRange(const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max) const
+{
+	int r_cap {max(0, min(rows, r))};
+	int c_cap {max(0, min(cols, c))};
+
+	auto onVSkel = [&](int r0)
+	{
+		r0 = max(0, min(rows, r0));
+		return useVertex(r0, c_cap) or gridPoints[r0][c_cap].valenceBits == 12;
+	};
+	auto onHSkel = [&](int c0)
+	{
+		c0 = max(0, min(cols, c0));
+		return useVertex(r_cap, c0) or gridPoints[r_cap][c0].valenceBits == 3;
+	};
+	r_min = r_max = r;
+	c_min = c_max = c;
+	FOR(k,0,2)
+	{
+		while(--r_min >= 0 and not onVSkel(r_min));
+		while(++r_max <= rows and not onVSkel(r_max));
+		while(--c_min >= 0 and not onHSkel(c_min));
+		while(++c_max <= cols and not onHSkel(c_max));
+	}
+	r_min = max(r_min, 0);
+	r_max = min(r_max, rows);
+	c_min = max(c_min, 0);
+	c_max = min(c_max, cols);
+};
+
+void TMesh::get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const
+{
+	map<int,int> rowCounts, colCounts;
+	blendP.clear();
+	blendP.reserve(16);
+
+	// Loop over all vertices of the frame region (including inactive ones)
+	FOR(r,-2,rows+3) FOR(c,-2,cols+3)
+	{
+		int r_cap {r};
+		int c_cap {c};
+		cap(r_cap, c_cap);
+
+		// Ignore non-vertex
+		if(not useVertex(r_cap, c_cap)) continue;
+
+		int r_min, r_max, c_min, c_max;
+		getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
+
+		if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
+		{
+			blendP.emplace_back(r, c);
+			++rowCounts[r];
+			++colCounts[c];
+		}
+	}
+
+	assert(SZ(blendP) == 16);
+
+	row_n_4 = SZ(rowCounts) == 4;
+	col_n_4 = SZ(colCounts) == 4;
+}
+
+
+
+
 
 // Initialize mesh information for the scene
 void TMeshScene::setup(TMesh *tmesh)
@@ -672,7 +749,7 @@ void TMeshScene::setup(TMesh *tmesh)
 void TMeshScene::updateScene()
 {
 	// Update dynamic objects in 'gridSpheres' if dimensions change
-	if(rows != mesh->rows || cols != mesh->cols)
+	if(rows != mesh->rows or cols != mesh->cols)
 	{
 		freeGridSpheres();
 		sphereIndices.clear();
@@ -799,6 +876,62 @@ static TriMesh* createTriMesh(const VVP3 &S)
 	return ret;
 }
 
+static TriMesh* createTriMesh2(const vector<VVP3>& Ss)
+{
+	// Count the number of vertices and triangles to allocate just enough memory
+	int nverts {0};
+	int ntris {0};
+	for(auto& S: Ss)
+	{
+		int R {SZ(S) - 1};
+		assert(R >= 0);
+		int C {SZ(S[0]) - 1};
+		assert(C >= 0);
+
+		nverts += (R + 1) * (C + 1);
+		ntris += R * C * 2;
+	}
+
+	Pt3Array* pts = new Pt3Array();
+	TriIndArray* inds = new TriIndArray();
+	pts->recap(nverts);
+	inds->recap(ntris);
+	int id0 = 0; // running vertex index
+
+	// Build a tri-mesh from each unit element
+	for(auto& S: Ss)
+	{
+		int R {SZ(S) - 1};
+		int C {SZ(S[0]) - 1};
+
+		vector<VI> ID(R+1,VI(C+1));
+		FOR(r,0,R+1) FOR(c,0,C+1)
+		{
+			ID[r][c] = id0++;
+			pts->add(S[r][c]);
+		}
+
+		FOR(r,0,R) FOR(c,0,C)
+		{
+			// wz : w  | wz
+			// xy : xy |  y
+			int w = ID[r][c];
+			int x = ID[r+1][c];
+			int y = ID[r+1][c+1];
+			int z = ID[r][c+1];
+			inds->add(TriInd(w,x,y));
+			inds->add(TriInd(w,y,z));
+		}
+	}
+
+	TriMesh* ret = new TriMesh(pts,inds);
+	// compute the normals
+	ret->setFNormals(RenderingUtils::perFaceNormals(pts,inds));
+	ret->setVNormals(RenderingUtils::perVertexNormals(pts,inds));
+
+	return ret;
+}
+
 TriMeshScene::TriMeshScene()
 {
 	_mat = NULL;
@@ -823,11 +956,20 @@ void TriMeshScene::setCurve(vector<pair<Pt3, int>> points)
 	useCurve = true;
 }
 
-void TriMeshScene::setMesh(const VVP3 &S)
+void TriMeshScene::setMesh(const VVP3& S)
 {
 	_mesh = createTriMesh(S);
 	useCurve = false;
 }
+
+void TriMeshScene::setMesh2(const vector<VVP3>& S)
+{
+	_mesh = createTriMesh2(S);
+	useCurve = false;
+}
+
+
+
 
 
 
@@ -870,7 +1012,7 @@ static Pt3 localDeBoor(int deg, double t, vector<PyramidNode> layer)
 // Update the index 'p' to cover the appropriate knot values given a particular parameter t
 static void updateSegmentIndex(int &p, int n, double t, const vector<double> &knots)
 {
-	while(p + 1 < n && (t > knots[p + 1] + 1e-9 || abs(knots[p] - knots[p + 1]) < 1e-9))
+	while(p + 1 < n and (t > knots[p + 1] + 1e-9 or abs(knots[p] - knots[p + 1]) < 1e-9))
 		++p;
 }
 
@@ -942,6 +1084,7 @@ void TriMeshScene::setScene(const TMesh *T)
 	}
 	else
 	{
+/*
 		VVP3 S;
 		// Interpolate points on the B-spline surface
 		const int RN = 40;
@@ -997,7 +1140,324 @@ void TriMeshScene::setScene(const TMesh *T)
 				S[ri][ci] = localDeBoor(T->degH, t, move(pointsH));
 			}
 		}
+*/
 
-		setMesh(S);
+		vector<VVP3> Ss;
+		VVP3 S;
+		FOR(ur,1,T->rows-1) FOR(uc,1,T->cols-1)
+		{
+			const double s0 {T->knotsV[ur + 1]};
+			const double s1 {T->knotsV[ur + 2]};
+			const double t0 {T->knotsH[uc + 1]};
+			const double t1 {T->knotsH[uc + 2]};
+			// Skip unit elements with zero-area parameter space (s,t)
+			if(s0 + 1e-9 > s1 or t0 + 1e-9 > t1) continue;
+
+			bool ready {false};
+			auto populateS = [&](double r_margin, double c_margin)
+			{
+				S.assign(2, VP3(2));
+				int r {ur};
+				int c {uc};
+				FOR(i,0,2) FOR(j,0,2)
+				{
+					Pt3 p(0,0,0,0);
+					FOR(a,0,2) FOR(b,0,2)
+					{
+						double wa {(a == i) ? 1 - r_margin : r_margin};
+						double wb {(b == j) ? 1 - c_margin : c_margin};
+						p += T->gridPoints[r+a][c+b].position * wa * wb;
+					}
+					S[i][j] = p;
+				}
+
+				ready = true;
+			};
+
+			// Retrieve the 16 blending points for the unit element (ur, uc)
+			bool row_n_4, col_n_4;
+			vector<pair<int,int>> blendP;
+			T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
+
+			auto findVertex = [&](int& r, int& c, int dr, int dc)
+			{
+				do
+				{
+					r += dr;
+					c += dc;
+					if(r < 0)
+					{
+						r = 0;
+						break;
+					}
+					else if(r > T->rows)
+					{
+						r = T->rows;
+						break;
+					}
+					if(c < 0)
+					{
+						c = 0;
+						break;
+					}
+					else if(c > T->cols)
+					{
+						c = T->cols;
+						break;
+					}
+				}
+				while(not T->useVertex(r,c));
+			};
+
+			if(row_n_4) // can process row-then-column
+			{
+				// blendP: row-major by default
+
+				// Restrict the vertices to within the active region
+				for(auto& p: blendP) T->cap(p._1, p._2);
+
+				auto findHEdge = [&](int& r, int dr)
+				{
+					do
+					{
+						r += dr;
+						if(r < 0)
+						{
+							r = 0;
+							break;
+						}
+						else if(r > T->rows)
+						{
+							r = T->rows;
+							break;
+						}
+					}
+					while(not T->gridH[r][uc].on);
+				};
+
+				// Horizontal knot vectors, one per row
+				vector<double> kH[4];
+				for(int r = 0; r <= 3; ++r)
+				{
+					kH[r].reserve(6);
+					// Get knot value from the previous point to the left of P[r][0]
+					{
+						int r1, c1;
+						tie(r1, c1) = blendP[r * 4];
+						findVertex(r1, c1, 0, -1);
+						kH[r].emplace_back(T->knotsH[c1 + 1]);
+					}
+					// Get knot values from P[r][0..3]
+					for(int c = 0; c <= 3; ++c) kH[r].emplace_back(T->knotsH[blendP[r * 4 + c]._2 + 1]);
+					// Get knot value from the next point to the right of P[r][3]
+					{
+						int r1, c1;
+						tie(r1, c1) = blendP[r * 4 + 3];
+						findVertex(r1, c1, 0, +1);
+						kH[r].emplace_back(T->knotsH[c1 + 1]);
+					}
+				}
+
+				// Vertical knot vector
+				vector<double> kV;
+				kV.reserve(6);
+				// Get knot value from the previous point upward from P[0][0]
+				{
+					int r1 {blendP[0]._1};
+					findHEdge(r1, -1);
+					kV.emplace_back(T->knotsV[r1 + 1]);
+				}
+				// Get knot values from P[0..3][0]
+				for(int r = 0; r <= 3; ++r) kV.emplace_back(T->knotsV[blendP[r * 4]._1 + 1]);
+				// Get knot value from the next point down from P[3][0]
+				{
+					int r1 {blendP[12]._1};
+					findHEdge(r1, +1);
+					kV.emplace_back(T->knotsV[r1 + 1]);
+				}
+
+				const int RN {10};
+				const int CN {10};
+				const double ds {(s1 - s0) / RN};
+				const double dt {(t1 - t0) / CN};
+
+				S.assign(RN + 1, VP3(CN + 1));
+				FOR(ri,0,RN+1) FOR(ci,0,CN+1)
+				{
+					const double s {s0 + ds * ri};
+					const double t {t0 + dt * ci};
+
+					// Collect the initial control points for this vertical segment
+					vector<PyramidNode> pointsV(4);
+					for(int r = 0; r <= 3; ++r)
+					{
+						// Collect the initial control points for each horizontal segment
+						vector<PyramidNode> pointsH(4);
+						for(int c = 0; c <= 3; ++c)
+						{
+							int bp_r, bp_c;
+							tie(bp_r, bp_c) = blendP[r * 4 + c];
+
+							pointsH[c].point = T->gridPoints[bp_r][bp_c].position;
+							populateKnotLR(pointsH[c], c + 2, 3, kH[r]);
+						}
+
+						// Run the local de Boor algorithm on this horizontal segment
+						populateKnotLR(pointsV[r], r + 2, 3, kV);
+						pointsV[r].point = localDeBoor(3, t, move(pointsH));
+					}
+
+					// Run the local de Boor Algorithm on this vertical segment
+					S[ri][ci] = localDeBoor(3, s, move(pointsV));
+				}
+
+				ready = true;
+			}
+			else if(col_n_4) // can process column-then-row
+			{
+				// Make blendP column-major
+				sort(begin(blendP), end(blendP), [&](auto& p, auto& q)
+				{
+					if(p._2 != q._2) return p._2 < q._2;
+					else return p._1 < q._1;
+				});
+				// Restrict the vertices to within the active region
+				for(auto& p: blendP) T->cap(p._1, p._2);
+				// Make blendP row-major again (now sorted)
+				FOR(i,0,4) FOR(j,0,i) swap(blendP[i*4 + j], blendP[j*4 + i]);
+
+				auto findVEdge = [&](int& c, int dc)
+				{
+					do
+					{
+						c += dc;
+						if(c < 0)
+						{
+							c = 0;
+							break;
+						}
+						else if(c > T->cols)
+						{
+							c = T->cols;
+							break;
+						}
+					}
+					while(not T->gridV[ur][c].on);
+				};
+
+				// Vertical knot vectors, one per column
+				vector<double> kV[4];
+				for(int c = 0; c <= 3; ++c)
+				{
+					kV[c].reserve(6);
+					// Get knot value from the previous point upward from P[0][c]
+					{
+						int r1, c1;
+						tie(r1, c1) = blendP[c];
+						findVertex(r1, c1, -1, 0);
+						kV[c].emplace_back(T->knotsV[r1 + 1]);
+					}
+					// Get knot values from P[r][0..3]
+					for(int r = 0; r <= 3; ++r) kV[c].emplace_back(T->knotsV[blendP[r * 4 + c]._1 + 1]);
+					// Get knot value from the next point downward from P[3][c]
+					{
+						int r1, c1;
+						tie(r1, c1) = blendP[12 + c];
+						findVertex(r1, c1, +1, 0);
+						kV[c].emplace_back(T->knotsV[r1 + 1]);
+					}
+				}
+
+				// Horizontal knot vector
+				vector<double> kH;
+				kH.reserve(6);
+				// Get knot value from the previous point to the left of P[0][0]
+				{
+					int c1 {blendP[0]._2};
+					findVEdge(c1, -1);
+					kH.emplace_back(T->knotsH[c1 + 1]);
+				}
+				// Get knot values from P[0][0..3]
+				for(int c = 0; c <= 3; ++c) kH.emplace_back(T->knotsH[blendP[c]._2 + 1]);
+				// Get knot value from the next point to the right of P[0][3]
+				{
+					int c1 {blendP[3]._2};
+					findVEdge(c1, +1);
+					kH.emplace_back(T->knotsH[c1 + 1]);
+				}
+
+				const int RN {10};
+				const int CN {10};
+				const double ds {(s1 - s0) / RN};
+				const double dt {(t1 - t0) / CN};
+
+				S.assign(RN + 1, VP3(CN + 1));
+				FOR(ri,0,RN+1) FOR(ci,0,CN+1)
+				{
+					const double s {s0 + ds * ri};
+					const double t {t0 + dt * ci};
+
+					// Collect the initial control points for this horizontal segment
+					vector<PyramidNode> pointsH(4);
+					for(int c = 0; c <= 3; ++c)
+					{
+						// Collect the initial control points for each vertical segment
+						vector<PyramidNode> pointsV(4);
+						for(int r = 0; r <= 3; ++r)
+						{
+							int bp_r, bp_c;
+							tie(bp_r, bp_c) = blendP[r * 4 + c];
+
+							pointsV[r].point = T->gridPoints[bp_r][bp_c].position;
+							populateKnotLR(pointsV[r], r + 2, 3, kV[c]);
+						}
+
+						// Run the local de Boor algorithm on this vertical segment
+						populateKnotLR(pointsH[c], c + 2, 3, kH);
+						pointsH[c].point = localDeBoor(3, s, move(pointsV));
+					}
+
+					// Run the local de Boor Algorithm on this horizontal segment
+					S[ri][ci] = localDeBoor(3, t, move(pointsH));
+				}
+
+				ready = true;
+			}
+
+
+			// Testing: show which direction each unit element can be computed first (de Boor)
+			if(false)
+			{
+				if(SZ(blendP) == 16)
+				{
+					double r_margin {0.3};
+					double c_margin {0.3};
+					bool renderable {false};
+					// Check if there are only four rows (each with 4 vertices)
+					if(row_n_4)
+					{
+						c_margin = 0.05;
+						renderable = true;
+					}
+					// Check if there are only four columns (each with 4 vertices)
+					if(col_n_4)
+					{
+						r_margin = 0.05;
+						renderable = true;
+					}
+
+					if(renderable) populateS(r_margin, c_margin);
+				}
+				else
+				{
+					cout << "SZ(blendP) = " << SZ(blendP) << endl;
+				}
+			}
+
+			if(ready) Ss.emplace_back(move(S));
+		}
+
+		printf("set scene2\n");
+		setMesh2(Ss);
 	}
 }
