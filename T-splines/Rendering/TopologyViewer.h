@@ -21,8 +21,8 @@ public:
 	void draw();
 	int handle(int flag);
 
-	inline int getWidth() { return _w; }
-	inline int getHeight() { return _h; }
+	int getWidth() { return _w; }
+	int getHeight() { return _h; }
 
 	Pt3 win2Screen(int x, int y);
 	void set2DProjection();

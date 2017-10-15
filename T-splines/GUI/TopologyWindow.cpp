@@ -114,10 +114,10 @@ void TopologyWindow::updateSurface()
 void TopologyWindow::loadMesh(char *filePath)
 {
 	// If filePath is not supplied, then we'll use the file chooser
-	if(!filePath)
+	if(not filePath)
 		filePath = fl_file_chooser("Open T-Mesh", ".txt (*.txt)", "./files/", 0);
 
-	if(!filePath)
+	if(not filePath)
 	{
 		fprintf(stderr, "Canceled loading T-mesh\n");
 		return;
@@ -131,9 +131,9 @@ void TopologyWindow::loadMesh(char *filePath)
 		printf("Degree: V %d x H %d\n", _mesh.degV, _mesh.degH);
 		printf("\n");
 
-		if(!TMesh::checkDuplicateAtKnotEnds(_mesh.knotsH, _mesh.cols, _mesh.degH))
+		if(not TMesh::checkDuplicateAtKnotEnds(_mesh.knotsH, _mesh.cols, _mesh.degH))
 			printf("* Warning: Horizontal knot values are not repeated at end points\n");
-		if(!TMesh::checkDuplicateAtKnotEnds(_mesh.knotsV, _mesh.rows, _mesh.degV))
+		if(not TMesh::checkDuplicateAtKnotEnds(_mesh.knotsV, _mesh.rows, _mesh.degV))
 			printf("* Warning: Vertical knot values are not repeated at end points\n");
 
 		updatePanel();
@@ -147,7 +147,7 @@ void TopologyWindow::loadMesh(char *filePath)
 void TopologyWindow::saveMesh()
 {
 	char* filePath = fl_file_chooser("Save T-Mesh", ".txt (*.txt)", "./files/", 0);
-	if(!filePath)
+	if(not filePath)
 	{
 		fprintf(stderr, "Canceled saving T-mesh\n");
 		return;
@@ -176,7 +176,7 @@ void TopologyWindow::knotsHButtonCallback(Fl_Widget* widget, void* userdata)
 	if(topology and topology->knotsHInput)
 	{
 		vector<double> knotsH;
-		if(!parseDoubles(topology->knotsHInput->value(), knotsH))
+		if(not parseDoubles(topology->knotsHInput->value(), knotsH))
 		{
 			printf("Malformed input - horizontal knots\n");
 			return;
@@ -185,12 +185,12 @@ void TopologyWindow::knotsHButtonCallback(Fl_Widget* widget, void* userdata)
 		int cols = _mesh.cols;
 		int degH = _mesh.degH;
 
-		if(!TMesh::validateKnots(knotsH, cols, degH))
+		if(not TMesh::validateKnots(knotsH, cols, degH))
 		{
 			fprintf(stderr, "Non-decreasing horizontal knot values or incorrect counts\n");
 			return;
 		}
-		if(!TMesh::checkDuplicateAtKnotEnds(knotsH, cols, degH))
+		if(not TMesh::checkDuplicateAtKnotEnds(knotsH, cols, degH))
 			printf("\n* Warning: Horizontal knot values are not repeated at end points\n");
 
 		_mesh.lock.lock();
@@ -211,7 +211,7 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 	if(topology and topology->knotsVInput)
 	{
 		vector<double> knotsV;
-		if(!parseDoubles(topology->knotsVInput->value(), knotsV))
+		if(not parseDoubles(topology->knotsVInput->value(), knotsV))
 		{
 			printf("Malformed input - vertical knots\n");
 			return;
@@ -220,12 +220,12 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 		int rows = _mesh.rows;
 		int degV = _mesh.degV;
 
-		if(!TMesh::validateKnots(knotsV, rows, degV))
+		if(not TMesh::validateKnots(knotsV, rows, degV))
 		{
 			fprintf(stderr, "Non-decreasing vertical knot values or incorrect counts\n");
 			return;
 		}
-		if(!TMesh::checkDuplicateAtKnotEnds(knotsV, rows, degV))
+		if(not TMesh::checkDuplicateAtKnotEnds(knotsV, rows, degV))
 			printf("\n* Warning: Vertical knot values are not repeated at end points\n");
 
 		_mesh.lock.lock();
@@ -243,14 +243,16 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 void TopologyWindow::updateTopologyStatus(void* userdata)
 {
 	TopologyWindow *tw = (TopologyWindow *)userdata;
-	if(!tw or !tw->topStatLabel) return;
+	if(not tw or not tw->topStatLabel) return;
 
-	if(!tw->_mesh.validVertices)
+	if(not tw->_mesh.validVertices)
 		tw->topStatLabel->label("Invalid Vertices");
-	else if(!tw->_mesh.isAD)
+	else if(not tw->_mesh.isAD)
 		tw->topStatLabel->label("T-Mesh is not Admissible (AD)");
-	else if(!tw->_mesh.isAS)
+	else if(not tw->_mesh.isAS)
 		tw->topStatLabel->label("T-Mesh is not Analysis-Suitable (AS)");
+	else if(not tw->_mesh.isDS)
+		tw->topStatLabel->label("T-Mesh is not de Boor-Suitable (DS)");
 	else
 		tw->topStatLabel->label("T-Mesh OK");
 

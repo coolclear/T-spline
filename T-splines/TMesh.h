@@ -19,10 +19,19 @@ enum ValenceBits
 };
 enum ExtensionBits
 {
+	EXTENSION_NEITHER = 0,
 	EXTENSION_HORIZONTAL = 1,
 	EXTENSION_VERTICAL = 2,
 	// Denotes an intersection of V-H T-junction extensions
 	EXTENSION_BOTH = 3
+};
+enum DirectionBits
+{
+	DIR_NEITHER = 0,
+	DIR_ROW = 1,
+	DIR_COLUMN = 2,
+	// Denotes an intersection of V-H T-junction extensions
+	DIR_BOTH = 3
 };
 
 struct VertexInfo
@@ -33,12 +42,16 @@ struct VertexInfo
 	int valenceBits;
 	int valenceType; // -1: invalid, 0/2: unused, 3: T-junction, 4: "full" vertex
 	int extendFlag; // whether part of H(0) or V(1) T-junction extensions
+	int vId, hId; // vertical/horizontal indices of the 3rd of 5 elements in the
+	              // corresponding index vector instead of two 5-element vectors
 	VertexInfo() {}
-	VertexInfo(Pt3 p, int vb, int t)
+	VertexInfo(Pt3 p, int vb, int t, int v, int h)
 	{
 		position = move(p);
 		valenceBits = vb;
 		valenceType = t;
+		vId = v;
+		hId = h;
 	}
 };
 
@@ -70,8 +83,12 @@ public:
 
 	// Implicit (computed) information
 	bool validVertices; // true if all active vertices have valences 3-4 or 2 (straight)
-	bool isAD;
-	bool isAS;
+	bool isAD; // admissible?
+	bool isAS; // analysis-suitable?
+	bool isDS; // de Boor-suitable?
+	vector<VI> knotsCols, knotsRows; // indices, per column/row, discarding unused ones
+	vector<VI> blendDir; // for each unit element whether it is allowed to blend
+	                     // by row (0-bit) and/or column (1-bit) first
 
 	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
@@ -89,9 +106,10 @@ public:
 	void updateMeshInfo();
 	void getTiledFloorRange(const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max) const;
 	void get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const;
+	void get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const;
 
 private:
-	void markExtension(int r0, int c0, int dr, int dc, int steps, bool isVert);
+	void markExtension(int r0, int c0, int dr, int dc, bool isVert, int& minRes, int& maxRes);
 	bool isWithinGrid(int r, int c) const;
 	bool isSkipped(int r, int c, bool isVert) const;
 };

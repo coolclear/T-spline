@@ -155,7 +155,7 @@ void TopologyViewer::draw()
 			auto drawLine = [&](EdgeInfo ei, int r, int c, bool isVert)
 			{
 				bool doDraw = false;
-				if(!ei.valid)
+				if(not ei.valid)
 				{
 					doDraw = true;
 					glColor3dv(&colorBad[0]);
@@ -236,8 +236,31 @@ void TopologyViewer::draw()
 			glEnd();
 		}
 
+		// Mark non-de-Boor unit elements
+		if(_mesh->isAS and not _mesh->isDS)
+		{
+			FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols) if(_mesh->blendDir[r][c] == DIR_NEITHER)
+			{
+				const double margin_small {0.1};
+				const double margin_large {0.4};
+
+				double r0 {r + margin_small};
+				double c0 {c + margin_small};
+				double r1 {r + 1 - margin_small};
+				double c1 {c + 1 - margin_small};
+
+				glColor3d(0.3,0,0); // dark red
+				glBegin(GL_QUADS);
+				gridVertex2d(r0, c0);
+				gridVertex2d(r1, c0);
+				gridVertex2d(r1, c1);
+				gridVertex2d(r0, c1);
+				glEnd();
+			}
+		}
+
 		// Display the tiled floor of an anchor or the blending points for a unit element
-		if(_mesh->validVertices and _mesh->isAD and _mesh->isAS and highlightDir >= 3)
+		if(_mesh->isAS and highlightDir >= 3)
 		{
 			auto getTiledFloorRange = [&](const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max)
 			{
@@ -295,15 +318,15 @@ void TopologyViewer::draw()
 				_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
 
 				// Test: use tiled floors
-				glPointSize(10);
+				glPointSize(8);
 				glBegin(GL_POINTS);
 				glColor3d(1,0.1,0);
 				for(auto& p: blendP)
 				{
 					double r {double(p._1)};
 					double c {double(p._2)};
-					r = max(-0.1, min(_mesh->rows + 0.1, r));
-					c = max(-0.1, min(_mesh->cols + 0.1, c));
+					r = max(-0.03, min(_mesh->rows + 0.03, r));
+					c = max(-0.15, min(_mesh->cols + 0.15, c));
 					gridVertex2d(r, c);
 				}
 				glEnd();
@@ -314,7 +337,7 @@ void TopologyViewer::draw()
 
 				// Color green if the unit element is renderable, red otherwise
 				if(row_n_4 or col_n_4) glColor3d(0,0.4,0);
-				else glColor3d(0.4,0,0);
+				else glColor3d(0.5,0,0);
 
 				// Show which directions the unit element can be rendered first
 				if(row_n_4 == col_n_4)
@@ -422,12 +445,12 @@ int TopologyViewer::handle(int ev)
 			if(highlightDir == 1) // toggle the H-line
 			{
 				_mesh->gridH[highlightRow][highlightCol].on =
-					!_mesh->gridH[highlightRow][highlightCol].on;
+					not _mesh->gridH[highlightRow][highlightCol].on;
 			}
 			else if(highlightDir == 2) // toggle the V-line
 			{
 				_mesh->gridV[highlightRow][highlightCol].on =
-					!_mesh->gridV[highlightRow][highlightCol].on;
+					not _mesh->gridV[highlightRow][highlightCol].on;
 			}
 			_mesh->updateMeshInfo();
 
