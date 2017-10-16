@@ -2,7 +2,10 @@
 
 #include <iomanip>
 #include <fstream>
+#include <set>
 
+#undef assert
+#define assert(x) {if(not (x)) cout << "\n****** ASSERTION FAILED : " << (#x) << '\n' << endl;}
 
 bool TMesh::validateDimensionsAndDegrees(int r, int c, int degV, int degH)
 {
@@ -30,10 +33,10 @@ bool TMesh::validateDimensionsAndDegrees(int r, int c, int degV, int degH)
 // Knot values must have the right counts and be non-decreasing (sorted)
 bool TMesh::validateKnots(const vector<double> &knots, int n, int deg)
 {
-	if((int)knots.size() != n + deg)
+	if(SZ(knots) != n + deg)
 		return false;
 
-	for(int i = 1; i < (int)knots.size(); ++i)
+	for(int i = 1; i < SZ(knots); ++i)
 		if(knots[i-1] > knots[i]) // decreasing -> invalid
 			return false;
 	return true;
@@ -786,8 +789,9 @@ void TMesh::updateMeshInfo()
 
 void TMesh::getTiledFloorRange(const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max) const
 {
-	int r_cap {max(0, min(rows, r))};
-	int c_cap {max(0, min(cols, c))};
+	int r_cap {r};
+	int c_cap {c};
+	cap(r_cap, c_cap);
 
 	auto onVSkel = [&](int r0)
 	{
@@ -821,7 +825,7 @@ void TMesh::get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row
 	blendP.reserve(16);
 
 	// Loop over all vertices of the frame region (including inactive ones)
-	FOR(r,-2,rows+3) FOR(c,-2,cols+3)
+	FOR(r,-1,rows+2) FOR(c,-1,cols+2)
 	{
 		int r_cap {r};
 		int c_cap {c};
@@ -850,16 +854,145 @@ void TMesh::get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row
 // As described in the paper
 void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const
 {
+	using P2 = pair<int,int>;
 	map<int,int> rowCounts, colCounts;
+	set<P2> S, seen;
+
+	auto hasVLine = [&](int r, int c)
+	{
+		if(c <= 0 or c >= cols) return true;
+		r = max(0, min(rows, r));
+		return (gridPoints[r][c].valenceBits & VALENCE_BITS_UPDOWN) != 0;
+	};
+	auto hasHLine = [&](int r, int c)
+	{
+		if(r <= 0 or r >= rows) return true;
+		c = max(0, min(cols, c));
+		return (gridPoints[r][c].valenceBits & VALENCE_BITS_LEFTRIGHT) != 0;
+	};
+
+	auto check = [&](int r, int c) -> bool
+	{
+		if(not seen.emplace(r, c)._2) return false; // already seen this vertex
+
+		int r_cap {r};
+		int c_cap {c};
+		cap(r_cap, c_cap);
+
+		// Ignore non-vertex
+		if(not useVertex(r_cap, c_cap)) return false;
+
+		int r_min, r_max, c_min, c_max;
+		getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
+
+		if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
+		{
+			S.emplace(r, c);
+			++rowCounts[r];
+			++colCounts[c];
+			return true;
+		}
+		return false;
+	};
+
 	blendP.clear();
 	blendP.reserve(16);
 
-	// TODO
+	// Collect all non-missing vertices (Case #1)
+	bool missing[4][4];
+	FOR(r,0,4) FOR(c,0,4)
+	{
+		int rr {ur + r - 1};
+		int cc {uc + c - 1};
+		missing[r][c] = not check(rr, cc);
+	}
 
-	assert(SZ(blendP) == 16);
+	// For each missing vertex, find a replacement
+	FOR(r,0,4) FOR(c,0,4) if(missing[r][c])
+	{
+		int rr {ur + r - 1};
+		int cc {uc + c - 1};
+
+		if(hasVLine(rr, cc)) // Case #2 (missing H-line)
+		{
+			assert(not hasHLine(rr, cc)); // it would otherwise not be missing
+
+			int X {100};
+			int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+			do rr += dr; while(--X >= 0 and not check(rr, cc));
+			if(X < 0) cout << "CASE 2 inf loop" << endl;
+		}
+		else if(hasHLine(rr, cc)) // Case #3 (missing V-line)
+		{
+			int X {100};
+			int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+			do cc += dc; while(--X >= 0 and not check(rr, cc));
+			if(X < 0) cout << "CASE 3 inf loop" << endl;
+		}
+		else // Case #4 (ill missing)
+		{
+			int r0 {rr};
+			int c0 {cc};
+			// V -> H
+			{
+				int X {100};
+				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+				do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
+				if(X < 0)
+				{
+					cout << "CASE 4-a1 inf loop" << endl;
+					break;
+				}
+
+				X = 100;
+				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+				do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
+				if(X < 0) cout << "CASE 4-a2 inf loop" << endl;
+				else check(rr, cc);
+			}
+
+			rr = r0;
+			cc = c0;
+			// H -> V
+			{
+				int X {100};
+				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+				do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
+				if(X < 0)
+				{
+					cout << "CASE 4-b1 inf loop" << endl;
+					break;
+				}
+
+				X = 100;
+				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+				do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
+				if(X < 0) cout << "CASE 4-b2 inf loop" << endl;
+				else check(rr, cc);
+			}
+		}
+	}
+
+	for(auto& p: S) blendP.emplace_back(p);
+	//assert(SZ(blendP) == 16);
 
 	row_n_4 = SZ(rowCounts) == 4;
 	col_n_4 = SZ(colCounts) == 4;
+}
+
+
+void TMesh::test1(int ur, int uc,
+	vector<pair<int,int>>& blendP, vector<pair<int,int>>& blendP2,
+	vector<pair<int,int>>& missing, vector<pair<int,int>>& extra,
+	bool& row_n_4, bool& col_n_4) const
+{
+	bool t;
+	get16Points(ur, uc, blendP, row_n_4, col_n_4);
+	get16PointsFast(ur, uc, blendP2, t, t);
+	sort(begin(blendP), end(blendP));
+	sort(begin(blendP2), end(blendP2));
+	set_difference(begin(blendP), end(blendP), begin(blendP2), end(blendP2), back_inserter(missing));
+	set_difference(begin(blendP2), end(blendP2), begin(blendP2), end(blendP2), back_inserter(extra));
 }
 
 
@@ -1150,7 +1283,7 @@ static void populateKnotLR(PyramidNode &node, int p, int deg, const vector<doubl
 	int idL = p - deg;
 	int idR = p + 1;
 	node.knotL = (idL < 0) ? 0 : knots[idL];
-	node.knotR = (idR >= (int) knots.size()) ? 0 : knots[idR];
+	node.knotR = (idR >= SZ(knots)) ? 0 : knots[idR];
 }
 
 void TriMeshScene::setScene(const TMesh* T)
@@ -1216,10 +1349,14 @@ void TriMeshScene::setScene(const TMesh* T)
 		VVP3 S;
 		FOR(ur,1,T->rows-1) FOR(uc,1,T->cols-1)
 		{
+			// Skip dead areas
+			if(T->blendDir[ur][uc] == DIR_NEITHER) continue;
+
 			const double s0 {T->knotsV[ur + 1]};
 			const double s1 {T->knotsV[ur + 2]};
 			const double t0 {T->knotsH[uc + 1]};
 			const double t1 {T->knotsH[uc + 2]};
+
 			// Skip unit elements with zero-area parameter space (s,t)
 			if(s0 + 1e-9 > s1 or t0 + 1e-9 > t1) continue;
 
@@ -1247,37 +1384,27 @@ void TriMeshScene::setScene(const TMesh* T)
 			// Retrieve the 16 blending points for the unit element (ur, uc)
 			bool row_n_4, col_n_4;
 			vector<pair<int,int>> blendP;
-			T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
 
-			auto findVertex = [&](int& r, int& c, int dr, int dc)
+			if(false)
 			{
-				do
+				T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
+				//T->get16PointsFast(ur, uc, blendP, row_n_4, col_n_4);
+			}
+			else // Testing...
+			{
+				vector<pair<int,int>> blendP2, missing, extra;
+				T->test1(ur, uc, blendP, blendP2, missing, extra, row_n_4, col_n_4);
+				if(blendP != blendP2)
 				{
-					r += dr;
-					c += dc;
-					if(r < 0)
-					{
-						r = 0;
-						break;
-					}
-					else if(r > T->rows)
-					{
-						r = T->rows;
-						break;
-					}
-					if(c < 0)
-					{
-						c = 0;
-						break;
-					}
-					else if(c > T->cols)
-					{
-						c = T->cols;
-						break;
-					}
+					cout << "\n\nBAD\n";
+					cout << "missing : ";
+					for(auto p: missing) cout << p._1 << ' ' << p._2 << "    ";
+					cout << endl;
+					cout << "extra   : ";
+					for(auto p: extra) cout << p._1 << ' ' << p._2 << "    ";
+					cout << endl;
 				}
-				while(not T->useVertex(r,c));
-			};
+			}
 
 			const int RN {20};
 			const int CN {20};
@@ -1360,7 +1487,7 @@ void TriMeshScene::setScene(const TMesh* T)
 			else if(col_n_4) // can process column-then-row
 			{
 				// Make blendP column-major
-				sort(begin(blendP), end(blendP), [&](auto& p, auto& q)
+				sort(begin(blendP), end(blendP), [&](const auto& p, const auto& q)
 				{
 					if(p._2 != q._2) return p._2 < q._2;
 					else return p._1 < q._1;

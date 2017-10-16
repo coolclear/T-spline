@@ -15,7 +15,10 @@ enum ValenceBits
 	VALENCE_BIT_UP = 1,
 	VALENCE_BIT_DOWN = 2,
 	VALENCE_BIT_LEFT = 4,
-	VALENCE_BIT_RIGHT = 8
+	VALENCE_BIT_RIGHT = 8,
+	VALENCE_BITS_UPDOWN = 3,
+	VALENCE_BITS_LEFTRIGHT = 12,
+	VALENCE_BITS_ALL = 15
 };
 enum ExtensionBits
 {
@@ -107,6 +110,10 @@ public:
 	void getTiledFloorRange(const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max) const;
 	void get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const;
 	void get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const;
+	void test1(int ur, int uc,
+		vector<pair<int,int>>& blend1, vector<pair<int,int>>& blend2,
+		vector<pair<int,int>>& missing, vector<pair<int,int>>& extra,
+		bool& row_n_4, bool& col_n_4) const;
 
 private:
 	void markExtension(int r0, int c0, int dr, int dc, bool isVert, int& minRes, int& maxRes);
@@ -249,7 +256,7 @@ public:
 	vector<pair<Pt3, int>> &getCurve() { return curvePoints; }
 	TriMesh* getMesh() { return _mesh; }
 	Material* getMaterial() { return _mat; }
-	int getNumLights() { return (int)_lights.size(); }
+	int getNumLights() { return SZ(_lights); }
 	Light* getLight(int i) { return _lights[i]; }
 };
 

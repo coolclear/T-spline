@@ -9,7 +9,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-TMesh TopologyWindow::_mesh(4, 6, 3, 3);
+TMesh TopologyWindow::_mesh(7, 7, 3, 3);
 
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
@@ -82,7 +82,7 @@ void TopologyWindow::updatePanel()
 	stringstream ss;
 	ss << setprecision(6);
 	// Horizontal knots
-	for(int i = 0; i < (int)_mesh.knotsH.size(); ++i)
+	for(int i = 0; i < SZ(_mesh.knotsH); ++i)
 	{
 		if(i > 0) ss << ' ';
 		ss << _mesh.knotsH[i];
@@ -91,7 +91,7 @@ void TopologyWindow::updatePanel()
 
 	ss = stringstream();
 	// Vertical knots
-	for(int i = 0; i < (int)_mesh.knotsV.size(); ++i)
+	for(int i = 0; i < SZ(_mesh.knotsV); ++i)
 	{
 		if(i > 0) ss << ' ';
 		ss << _mesh.knotsV[i];
@@ -194,7 +194,7 @@ void TopologyWindow::knotsHButtonCallback(Fl_Widget* widget, void* userdata)
 			printf("\n* Warning: Horizontal knot values are not repeated at end points\n");
 
 		_mesh.lock.lock();
-		assert(_mesh.knotsH.size() == knotsH.size());
+		assert(SZ(_mesh.knotsH) == SZ(knotsH));
 		_mesh.knotsH = move(knotsH);
 		_mesh.lock.unlock();
 
@@ -229,7 +229,7 @@ void TopologyWindow::knotsVButtonCallback(Fl_Widget* widget, void* userdata)
 			printf("\n* Warning: Vertical knot values are not repeated at end points\n");
 
 		_mesh.lock.lock();
-		assert(_mesh.knotsV.size() == knotsV.size());
+		assert(SZ(_mesh.knotsV) == SZ(knotsV));
 		_mesh.knotsV = move(knotsV);
 		_mesh.lock.unlock();
 

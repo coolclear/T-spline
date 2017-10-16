@@ -9,7 +9,7 @@ static int highlightDir = 0;
 static int highlightRow = 0;
 static int highlightCol = 0;
 
-static const double canvasMargin = 0.03;
+static const double canvasMargin = 0.1;
 static const double canvasLen = 1 - canvasMargin * 2;
 
 TopologyViewer::TopologyViewer(int x, int y, int w, int h, const char* l)
@@ -63,7 +63,9 @@ void TopologyViewer::draw()
 
 	auto gridVertex2d = [&](double r, double c)
 	{
-		glVertex2d(c * sx + mx, r * sy + my);
+		r = max(0.01, min(0.99, r * sy + my));
+		c = max(0.01, min(0.99, c * sx + mx));
+		glVertex2d(c, r);
 	};
 
 	glLineWidth(1);
@@ -313,23 +315,25 @@ void TopologyViewer::draw()
 			// Mark the unit element at which the cursor is pointing
 			if(highlightDir == 4)
 			{
-				vector<pair<int,int>> blendP;
+				vector<pair<int,int>> blendP, blendP2, missing, extra;
 				bool row_n_4, col_n_4;
-				_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
+				//_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
+				_mesh->test1(highlightRow, highlightCol, blendP, blendP2, missing, extra, row_n_4, col_n_4);
 
-				// Test: use tiled floors
-				glPointSize(8);
+				// Mark found or missing blending points (for testing the algorithms in the paper)
 				glBegin(GL_POINTS);
-				glColor3d(1,0.1,0);
-				for(auto& p: blendP)
-				{
-					double r {double(p._1)};
-					double c {double(p._2)};
-					r = max(-0.03, min(_mesh->rows + 0.03, r));
-					c = max(-0.15, min(_mesh->cols + 0.15, c));
-					gridVertex2d(r, c);
-				}
+				glPointSize(8);
+				// all good blending points
+				glColor3d(0, 1, 1);
+				for(auto& p: blendP) gridVertex2d(p._1, p._2);
+				// missing points
+				glColor3d(1, 0.2, 0);
+				for(auto& p: missing) gridVertex2d(p._1, p._2);
+				// extra points
+				glColor3d(0.5, 1, 0);
+				for(auto& p: extra) gridVertex2d(p._1, p._2);
 				glEnd();
+
 
 				double r0, r1, c0, c1;
 				const double margin_small {0.1};
