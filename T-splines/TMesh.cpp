@@ -846,7 +846,6 @@ void TMesh::get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row
 	}
 
 	assert(SZ(blendP) == 16);
-
 	row_n_4 = SZ(rowCounts) == 4;
 	col_n_4 = SZ(colCounts) == 4;
 }
@@ -856,7 +855,7 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 {
 	using P2 = pair<int,int>;
 	map<int,int> rowCounts, colCounts;
-	set<P2> S, seen;
+	set<P2> S;
 
 	auto hasVLine = [&](int r, int c)
 	{
@@ -871,111 +870,171 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 		return (gridPoints[r][c].valenceBits & VALENCE_BITS_LEFTRIGHT) != 0;
 	};
 
-	auto check = [&](int r, int c) -> bool
+	// rows/columns that are not void of H-/V-lines
+	VI good_rows(4), good_cols(4);
 	{
-		if(not seen.emplace(r, c)._2) return false; // already seen this vertex
-
-		int r_cap {r};
-		int c_cap {c};
-		cap(r_cap, c_cap);
-
-		// Ignore non-vertex
-		if(not useVertex(r_cap, c_cap)) return false;
-
-		int r_min, r_max, c_min, c_max;
-		getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
-
-		if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
+		auto find_rows = [&](int r, int dr, int i, int di, int i_stop)
 		{
-			S.emplace(r, c);
-			++rowCounts[r];
-			++colCounts[c];
-			return true;
+			while(i != i_stop)
+			{
+				// use 4 default rows
+				FOR(c,uc-1,uc+3) if(hasHLine(r, c))
+				{
+					good_rows[i] = r;
+					i += di;
+					break;
+				}
+				r += dr;
+			}
+		};
+		auto find_columns = [&](int c, int dc, int i, int di, int i_stop)
+		{
+			while(i != i_stop)
+			{
+				// use 4 default rows
+				FOR(r,ur-1,ur+3) if(hasVLine(r, c))
+				{
+					good_cols[i] = c;
+					i += di;
+					break;
+				}
+				c += dc;
+			}
+		};
+
+		// Find the two nearest non-empty rows above unit(P)
+		find_rows(ur, -1, 1, -1, -1);
+		// Find the two nearest non-empty rows below unit(P)
+		find_rows(ur+1, 1, 2, 1, 4);
+
+		// Find the two nearest non-empty columns to the left of unit(P)
+		find_columns(uc, -1, 1, -1, -1);
+		// Find the two nearest non-empty columns to the right of unit(P)
+		find_columns(uc+1, 1, 2, 1, 4);
+	}
+
+#define debug_print(x) (0) // (0) for nothing, (x) for printing
+
+	auto find_missing = [&](VI core_rows, VI core_cols)
+	{
+		assert(SZ(core_rows) == 4 and SZ(core_cols) == 4);
+
+		set<P2> seen;
+
+		auto check = [&](int r, int c) -> bool
+		{
+			// if already has seen this vertex for this call of find_missing
+			if(not seen.emplace(r, c)._2) return false;
+
+			int r_cap {r};
+			int c_cap {c};
+			cap(r_cap, c_cap);
+
+			// Ignore non-vertex
+			if(not useVertex(r_cap, c_cap)) return false;
+
+			int r_min, r_max, c_min, c_max;
+			getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
+
+			if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
+			{
+				S.emplace(r, c);
+				return true;
+			}
+			return false;
+		};
+
+		// Collect all non-missing vertices (Case #1)
+		bool missing[4][4];
+		FOR(r,0,4) FOR(c,0,4)
+		{
+			int rr {core_rows[r]};
+			int cc {core_cols[c]};
+			missing[r][c] = not check(rr, cc);
 		}
-		return false;
+
+		// For each missing vertex, find a replacement
+		FOR(r,0,4) FOR(c,0,4) if(missing[r][c])
+		{
+			int rr {core_rows[r]};
+			int cc {core_cols[c]};
+
+			if(hasVLine(rr, cc)) // Case #2 (missing H-line)
+			{
+				int X {100};
+				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+				do rr += dr; while(--X >= 0 and not check(rr, cc));
+				if(X < 0) debug_print(cout << "CASE 2 inf loop" << endl);
+			}
+			else if(hasHLine(rr, cc)) // Case #3 (missing V-line)
+			{
+				int X {100};
+				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+				do cc += dc; while(--X >= 0 and not check(rr, cc));
+				if(X < 0) debug_print(cout << "CASE 3 inf loop" << endl);
+			}
+			else // Case #4 (ill missing)
+			{
+				int r0 {rr};
+				int c0 {cc};
+				// set V solid, then H solid
+				{
+					int X {100};
+					int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+					do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
+					if(X < 0)
+					{
+						debug_print(cout << "CASE 4-a1 inf loop" << endl);
+						break;
+					}
+
+					X = 100;
+					int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+					do cc += dc; while(--X >= 0 and not check(rr, cc));
+					if(X < 0) debug_print(cout << "CASE 4-a2 inf loop" << endl);
+				}
+
+				rr = r0;
+				cc = c0;
+				// set H solid, then V solid
+				{
+					int X {100};
+					int dc {(c < 2) ? -1: 1}; // left 2 or right 2
+					do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
+					if(X < 0)
+					{
+						debug_print(cout << "CASE 4-b1 inf loop" << endl);
+						break;
+					}
+
+					X = 100;
+					int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
+					do rr += dr; while(--X >= 0 and not check(rr, cc));
+					if(X < 0) debug_print(cout << "CASE 4-b2 inf loop" << endl);
+				}
+			}
+		}
 	};
+#undef debug_print
+
+	VI normal_rows {ur-1, ur, ur+1, ur+2};
+	VI normal_cols {uc-1, uc, uc+1, uc+2};
+
+	// Try many combinations of good and normal rows/columns
+	find_missing(good_rows, good_cols);
+	find_missing(normal_rows, good_cols);
+	find_missing(good_rows, normal_cols);
 
 	blendP.clear();
 	blendP.reserve(16);
-
-	// Collect all non-missing vertices (Case #1)
-	bool missing[4][4];
-	FOR(r,0,4) FOR(c,0,4)
+	for(auto& p: S)
 	{
-		int rr {ur + r - 1};
-		int cc {uc + c - 1};
-		missing[r][c] = not check(rr, cc);
+		blendP.emplace_back(p);
+		++rowCounts[p._1];
+		++colCounts[p._2];
 	}
 
-	// For each missing vertex, find a replacement
-	FOR(r,0,4) FOR(c,0,4) if(missing[r][c])
-	{
-		int rr {ur + r - 1};
-		int cc {uc + c - 1};
-
-		if(hasVLine(rr, cc)) // Case #2 (missing H-line)
-		{
-			assert(not hasHLine(rr, cc)); // it would otherwise not be missing
-
-			int X {100};
-			int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-			do rr += dr; while(--X >= 0 and not check(rr, cc));
-			if(X < 0) cout << "CASE 2 inf loop" << endl;
-		}
-		else if(hasHLine(rr, cc)) // Case #3 (missing V-line)
-		{
-			int X {100};
-			int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-			do cc += dc; while(--X >= 0 and not check(rr, cc));
-			if(X < 0) cout << "CASE 3 inf loop" << endl;
-		}
-		else // Case #4 (ill missing)
-		{
-			int r0 {rr};
-			int c0 {cc};
-			// V -> H
-			{
-				int X {100};
-				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-				do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
-				if(X < 0)
-				{
-					cout << "CASE 4-a1 inf loop" << endl;
-					break;
-				}
-
-				X = 100;
-				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-				do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
-				if(X < 0) cout << "CASE 4-a2 inf loop" << endl;
-				else check(rr, cc);
-			}
-
-			rr = r0;
-			cc = c0;
-			// H -> V
-			{
-				int X {100};
-				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-				do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
-				if(X < 0)
-				{
-					cout << "CASE 4-b1 inf loop" << endl;
-					break;
-				}
-
-				X = 100;
-				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-				do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
-				if(X < 0) cout << "CASE 4-b2 inf loop" << endl;
-				else check(rr, cc);
-			}
-		}
-	}
-
-	for(auto& p: S) blendP.emplace_back(p);
-	//assert(SZ(blendP) == 16);
-
+//	assert(SZ(blendP) == 16);
 	row_n_4 = SZ(rowCounts) == 4;
 	col_n_4 = SZ(colCounts) == 4;
 }
