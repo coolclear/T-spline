@@ -1482,7 +1482,160 @@ void TriMeshScene::setScene(const TMesh* T)
 		}
 		setCurve(P);
 	}
-	else
+	else // B-spline
+	{
+		cout << "A" << endl;
+		VVP3 S;
+		const int RN {2};
+		const int CN {2};
+
+		S.assign(RN+1, VP3(CN+1));
+
+		const double s0 {T->knotsV[2]};
+		const double s1 {T->knotsV[T->rows]};
+		const double t0 {T->knotsH[2]};
+		const double t1 {T->knotsH[T->cols]};
+
+		auto populateKnotsH5 = [&](vector<double>& K, int p_r, int p_c)
+		{
+			K.clear();
+			K.reserve(5);
+			p_r = max(0, min(T->rows, p_r));
+			const int h {(p_c < 0) ? 0 : (p_c > T->cols) ? SZ(T->knotsRows[p_r]) - 1 : T->gridPoints[p_r][p_c].hId};
+			FOR(dh,-2,3)
+			{
+				const int hh {max(0, min(SZ(T->knotsRows[p_r]) - 1, h + dh))};
+//				cout << "hh " << hh << "  dh " << dh << "  h " << h << "   - " << SZ(T->knotsRows[p_r]) << endl;
+				K.emplace_back(T->knotsH[T->knotsRows[p_r][hh] + 1]);
+			}
+		};
+
+		auto populateKnotsV5 = [&](vector<double>& K, int p_r, int p_c, bool run = false)
+		{
+			K.clear();
+			K.reserve(5);
+			p_c = max(0, min(T->cols, p_c));
+			const int v {(p_r < 0) ? 0 : (p_r > T->rows) ? SZ(T->knotsCols[p_c]) - 1 : T->gridPoints[p_r][p_c].vId};
+			FOR(dv,-2,3)
+			{
+				const int vv {max(0, min(SZ(T->knotsCols[p_c]) - 1, v + dv))};
+				if(run) cout << "   " << vv << "_" << T->knotsCols[p_c][vv];
+				K.emplace_back(T->knotsV[T->knotsCols[p_c][vv] + 1]);
+			}
+			if(run) cout << endl;
+		};
+
+		auto B_s = [&](double s, vector<double>& knots)
+		{
+			assert(SZ(knots) == 5);
+			static double dp[4][4];
+			FOR(j,0,4) dp[0][j] = (knots[j] <= s and s < knots[j+1]) ? 1.0 : 0.0;
+			FOR(i,1,4) FOR(j,0,4-i)
+			{
+				dp[i][j] = 0;
+				auto a {dp[i-1][j] * (s - knots[j])};
+				if(abs(a) > 1e-20) dp[i][j] += a / (knots[j + i] - knots[j]);
+				auto b {dp[i-1][j+1] * (knots[j + i + 1] - s)};
+				if(abs(b) > 1e-20) dp[i][j] += b / (knots[j + i + 1] - knots[j + 1]);
+			}
+			return dp[3][0];
+		};
+		//cout << "B" << endl;
+
+		vector<double> X, Y(11);
+		FOR(i,-1,5) if(i != 1 and i != 2)
+		{
+			populateKnotsH5(X, 2, i);
+			for(auto a: X) cout << a << ' ';
+			cout << endl;
+			cout << fixed << setprecision(5);
+			FOR(j,0,11) cout << j/10.0 << " : " << B_s(j/10.0, X) << endl;
+			FOR(j,0,11) Y[j] += B_s(j/10.0, X);
+		}
+		FOR(i,0,11) cout << Y[i] << endl;
+
+		Y.assign(11,0);
+		for(auto a: T->knotsV)
+		{
+			cout << a << ' ';
+		}
+		cout << endl;
+		for(auto a: T->knotsCols[0])
+		{
+			cout << a << " - " << T->knotsV[a+1] <<  "      ";
+		}
+		cout << endl;
+
+		cout << "\n\n VVV \n";
+		FOR(i,-1,6) if(i != 1 and i != 3)
+		{
+			cout << i << " ---\n";
+			populateKnotsV5(X, i, 0, true);
+			for(auto a: X) cout << a << ' ';
+			cout << endl;
+			cout << fixed << setprecision(5);
+			FOR(j,0,11) cout << j/5.0 << " : " << B_s(j/5.0, X) << endl;
+			FOR(j,0,11) Y[j] += B_s(j/5.0, X);
+			cout << endl;
+		}
+		FOR(i,0,11) cout << Y[i] << endl;
+		cout << endl;
+		//exit(0);
+
+		//return;
+
+		FOR(ri,0,RN+1) FOR(ci,0,CN+1)
+		{
+			const double s {s0 + ri * (s1-s0) / RN};
+			const double t {t0 + ci * (t1-t0) / CN};
+
+			Pt3& res {S[ri][ci]};
+			res = Pt3(0,0,0,0);
+
+			FOR(ar,-1,T->rows+2) FOR(ac,-1,T->cols+2)
+			{
+				int ar_cap {ar};
+				int ac_cap {ac};
+				T->cap(ar_cap, ac_cap);
+				if(not T->useVertex(ar_cap, ac_cap)) continue;
+
+				const auto& P = T->gridPoints[ar_cap][ac_cap];
+
+				vector<double> knotsV, knotsH;
+				populateKnotsH5(knotsH, ar, ac);
+				populateKnotsV5(knotsV, ar, ac);
+				double x {B_s(s, knotsV)};
+				double y {B_s(t, knotsH)};
+				double c {x * y};
+				res += P.position * c;
+
+				if(false and ri == 0 and ci == 1)
+				{
+					cout << "s " << s << "  t " << t << endl;
+					cout << "a " << ar << ' ' << ac << endl;
+					cout << P.position << "      c " << c << endl;
+					cout << x << ' ' << y << endl;
+					cout << "knots H ";
+					for(auto a: knotsH) cout << ' ' << a;
+					cout << endl;
+					cout << "knots V ";
+					for(auto a: knotsV) cout << ' ' << a;
+					cout << endl << endl;
+				}
+			}
+
+			if(abs(res[3] - 1) > 1e-6) cout << "too much error  " << ri << ' ' << ci << endl;
+		}
+		cout << "C" << endl;
+
+		cout << SZ(S) << endl;
+
+		//FOR(i,0,RN+1) FOR(j,0,CN+1) cout << i << "  " << j << "  :  " << S[i][j] << endl;
+
+		setMesh(S);
+	}
+
+	if(false) // de Boor
 	{
 		vector<VVP3> Ss;
 		VVP3 S;
@@ -1552,26 +1705,28 @@ void TriMeshScene::setScene(const TMesh* T)
 
 			auto populateKnotsH = [&](vector<double>& K, pair<int,int> p_r_c1)
 			{
+				K.clear();
 				K.reserve(6);
 				int p_r, p_c;
 				tie(p_r, p_c) = p_r_c1;
 				const int h {T->gridPoints[p_r][p_c].hId};
 				FOR(dh,-2,4)
 				{
-					const int hh {max(0, min(SZ(T->knotsRows[p_r]), h + dh))};
+					const int hh {max(0, min(SZ(T->knotsRows[p_r]) - 1, h + dh))};
 					K.emplace_back(T->knotsH[T->knotsRows[p_r][hh] + 1]);
 				}
 			};
 
 			auto populateKnotsV = [&](vector<double>& K, pair<int,int> p_r1_c)
 			{
+				K.clear();
 				K.reserve(6);
 				int p_r, p_c;
 				tie(p_r, p_c) = p_r1_c;
 				const int v {T->gridPoints[p_r][p_c].vId};
 				FOR(dv,-2,4)
 				{
-					const int vv {max(0, min(SZ(T->knotsCols[p_c]), v + dv))};
+					const int vv {max(0, min(SZ(T->knotsCols[p_c]) - 1, v + dv))};
 					K.emplace_back(T->knotsV[T->knotsCols[p_c][vv] + 1]);
 				}
 			};
