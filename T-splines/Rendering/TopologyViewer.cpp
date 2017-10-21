@@ -192,8 +192,8 @@ void TopologyViewer::draw()
 
 
 		// Draw vertices
-		Color v3Color(0.2, 1, 0.2); // green for valence 3
-		Color v4Color(0.2, 0.4, 1); // blue for valence 4
+		Color v3Color(0.1, 0.3, 0.8); // blue for valence 3
+		Color v4Color(0.3, 0.3, 0.3); // gray for valence 4
 		Color vBadColor(1, 0.2, 0.2); // red for bad vertices
 
 		glPointSize(6);
@@ -324,7 +324,7 @@ void TopologyViewer::draw()
 				glBegin(GL_POINTS);
 				glPointSize(8);
 				// all good blending points
-				glColor3d(0, 1, 1);
+				glColor3d(0, 1, 0.3);
 				for(auto& p: blendP) gridVertex2d(p._1, p._2);
 				// missing points
 				glColor3d(1, 0.2, 0);

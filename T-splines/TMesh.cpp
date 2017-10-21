@@ -854,8 +854,9 @@ void TMesh::get16Points(int ur, int uc, vector<pair<int,int>>& blendP, bool& row
 void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool& row_n_4, bool& col_n_4) const
 {
 	using P2 = pair<int,int>;
-	map<int,int> rowCounts, colCounts;
-	set<P2> S;
+
+	set<P2> found_anchors;
+	map<int,int> rowQ[2][2], colQ[2][2]; // check for each quadrant of unit(P), at most 2 in each row/col
 
 	auto hasVLine = [&](int r, int c)
 	{
@@ -869,6 +870,8 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 		c = max(0, min(cols, c));
 		return (gridPoints[r][c].valenceBits & VALENCE_BITS_LEFTRIGHT) != 0;
 	};
+
+/*  expanded rows and columns: not used right now
 
 	// rows/columns that are not void of H-/V-lines
 	VI good_rows(4), good_cols(4);
@@ -912,107 +915,182 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 		// Find the two nearest non-empty columns to the right of unit(P)
 		find_columns(uc+1, 1, 2, 1, 4);
 	}
+*/
 
-#define debug_print(x) (0) // (0) for nothing, (x) for printing
+#define debug_print(x) (x) // (0) for nothing, (x) for printing
 
 	auto find_missing = [&](VI core_rows, VI core_cols)
 	{
 		assert(SZ(core_rows) == 4 and SZ(core_cols) == 4);
 
-		set<P2> seen;
-
-		auto check = [&](int r, int c) -> bool
+		auto checkQ = [&](const map<int,int>& Q, int x) -> bool
 		{
-			// if already has seen this vertex for this call of find_missing
-			if(not seen.emplace(r, c)._2) return false;
+			auto qi = Q.find(x);
+			return qi == Q.end() or qi->_2 < 2; // have found only 0-1 anchor
+		};
+		auto vacant_quadrant_col = [&](int ar, int ac, int c) -> bool
+		{
+			return checkQ(colQ[ar >> 1][ac >> 1], c);
+		};
+		auto vacant_quadrant_row = [&](int ar, int ac, int r) -> bool
+		{
+			return checkQ(rowQ[ar >> 1][ac >> 1], r);
+		};
+		auto vacant_quadrant = [&](int ar, int ac, int r, int c) -> bool
+		{
+			return vacant_quadrant_col(ar, ac, c) and vacant_quadrant_row(ar, ac, r);
+		};
 
+		auto insert_anchor = [&](int ar, int ac, int r, int c)
+		{
+			assert(vacant_quadrant(ar, ac, r, c)); // this row and column must not be full (2 anchors already found)
+			assert(found_anchors.find({r,c}) == found_anchors.end()); // not yet found
+			const int qr {ar >> 1};
+			const int qc {ac >> 1};
+			++rowQ[qr][qc][r];
+			++colQ[qr][qc][c];
+			found_anchors.emplace(r, c);
+		};
+
+		enum anchors_result {GOOD_ANCHOR, OUTSIDE_ANCHOR, BAD_ANCHOR};
+
+		// Check if the anchor is good and not yet found, and if so collect it
+		auto check = [&](int ar, int ac, int r, int c) -> anchors_result
+		{
 			int r_cap {r};
 			int c_cap {c};
 			cap(r_cap, c_cap);
 
 			// Ignore non-vertex
-			if(not useVertex(r_cap, c_cap)) return false;
+			if(not useVertex(r_cap, c_cap)) return BAD_ANCHOR;
 
 			int r_min, r_max, c_min, c_max;
 			getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
 
 			if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
 			{
-				S.emplace(r, c);
-				return true;
+				if(found_anchors.find({r,c}) == found_anchors.end() and vacant_quadrant(ar, ac, r, c))
+				{
+					insert_anchor(ar, ac, r, c);
+					return GOOD_ANCHOR;
+				}
+				else return BAD_ANCHOR;
+			}
+			return OUTSIDE_ANCHOR;
+		};
+
+		// Walk through the mesh vertically/horizontally to find a good anchor or a point to switch direction
+		// will only return true if do_check == true and a good anchor is found
+		auto walk_vert = [&](int ar, int ac, int& r, int c, bool do_check) -> bool
+		{
+			int h_seen {0};
+			int dr {(ar < 2) ? -1: 1}; // top 2 or bottom 2
+
+			while(h_seen < 2) // will consider at at most two rows with H-lines
+			{
+				if(hasHLine(r, c))
+				{
+					++h_seen;
+					if(vacant_quadrant_row(ar, ac, r)) // will visit this row only if not full
+					{
+						if(do_check) // check point now
+						{
+							auto res = check(ar, ac, r, c);
+							if(res != BAD_ANCHOR) return res == GOOD_ANCHOR;
+						}
+						else break; // not checking now, but planning to switch direction
+					}
+				}
+				r += dr;
+			}
+			return false;
+		};
+		auto walk_horz = [&](int ar, int ac, int r, int& c, bool do_check) -> bool
+		{
+			int v_seen {0};
+			int dc {(ac < 2) ? -1: 1}; // top 2 or bottom 2
+
+			while(v_seen < 2) // will consider at most two columns with V-lines
+			{
+				if(hasVLine(r, c))
+				{
+					++v_seen;
+					if(vacant_quadrant_col(ar, ac, c)) // will visit this column only if not full
+					{
+						if(do_check) // check point now
+						{
+							auto res = check(ar, ac, r, c);
+							if(res != BAD_ANCHOR) return res == GOOD_ANCHOR;
+						}
+						else break; // not checking now, but planning to switch direction
+					}
+				}
+				c += dc;
 			}
 			return false;
 		};
 
+		/*
+		 * Steps for finding all 16 anchors
+		 *  1) pick all existing anchors within the default surrounding box of unit(P)
+		 *  2) find all horizontal/vertical missing anchors
+		 *  3) find the remaining ill-missing anchors
+		 *    a) replace missing V-lines with solid lines, find a temporary vertex v (as in (2) above),
+		 *       revert the V-lines back, and do the same for H-lines (2) starting at v.
+		 *       Use the tiled floors to check if the anchor is the correct replacement.
+		 *       Repeat but with H-lines first, then V-lines.
+		 *
+		 *  - we assume that the area unit(P) is de-Boor-suitable
+		 *
+		 *  - for each quadrant of unit(P), there must be 4 anchors, and at most 2 per row/column
+		 *    (we will use this restriction to skip row/column that is full)
+		 *
+		 *  - depending on the allowed blending directions (determined by T-junction boxes),
+		 *    we may be able to determine which four rows and/or columns the blending anchors
+		 *    will reside in after we have collected some good anchors. For example:
+		 *     + if both directions, then we only need to know which four rows and columns
+		 *     + if row-first only, find which four rows only contain good anchors
+		 *
+		 *  - we can possibly terminate search
+		 *
+		 *  - aggressive search: treat each missing vertex as an ill-missing vertex
+		 *    and keep trying for all directions even if a replacement for it has been found
+		 */
+
 		// Collect all non-missing vertices (Case #1)
 		bool missing[4][4];
-		FOR(r,0,4) FOR(c,0,4)
+		FOR(ar,0,4) FOR(ac,0,4)
 		{
-			int rr {core_rows[r]};
-			int cc {core_cols[c]};
-			missing[r][c] = not check(rr, cc);
+			int rr {core_rows[ar]};
+			int cc {core_cols[ac]};
+			missing[ar][ac] = (check(ar, ac, rr, cc) != GOOD_ANCHOR);
 		}
 
-		// For each missing vertex, find a replacement
-		FOR(r,0,4) FOR(c,0,4) if(missing[r][c])
+		// For each missing vertex, find (all of) its replacement(s), aggressively
+		FOR(ar,0,4) FOR(ac,0,4) if(missing[ar][ac])
 		{
-			int rr {core_rows[r]};
-			int cc {core_cols[c]};
+			const int r {core_rows[ar]};
+			const int c {core_cols[ac]};
+			int r1, c1;
 
-			if(hasVLine(rr, cc)) // Case #2 (missing H-line)
-			{
-				int X {100};
-				int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-				do rr += dr; while(--X >= 0 and not check(rr, cc));
-				if(X < 0) debug_print(cout << "CASE 2 inf loop" << endl);
-			}
-			else if(hasHLine(rr, cc)) // Case #3 (missing V-line)
-			{
-				int X {100};
-				int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-				do cc += dc; while(--X >= 0 and not check(rr, cc));
-				if(X < 0) debug_print(cout << "CASE 3 inf loop" << endl);
-			}
-			else // Case #4 (ill missing)
-			{
-				int r0 {rr};
-				int c0 {cc};
-				// set V solid, then H solid
-				{
-					int X {100};
-					int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-					do rr += dr; while(--X >= 0 and not hasHLine(rr, cc));
-					if(X < 0)
-					{
-						debug_print(cout << "CASE 4-a1 inf loop" << endl);
-						break;
-					}
+			// move vertically only (case #2)
+			r1 = r;
+			walk_vert(ar, ac, r1, c, true);
 
-					X = 100;
-					int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-					do cc += dc; while(--X >= 0 and not check(rr, cc));
-					if(X < 0) debug_print(cout << "CASE 4-a2 inf loop" << endl);
-				}
+			// move horizontally only (case #3)
+			c1 = c;
+			walk_horz(ar, ac, r, c1, true);
 
-				rr = r0;
-				cc = c0;
-				// set H solid, then V solid
-				{
-					int X {100};
-					int dc {(c < 2) ? -1: 1}; // left 2 or right 2
-					do cc += dc; while(--X >= 0 and not hasVLine(rr, cc));
-					if(X < 0)
-					{
-						debug_print(cout << "CASE 4-b1 inf loop" << endl);
-						break;
-					}
-
-					X = 100;
-					int dr {(r < 2) ? -1: 1}; // top 2 or bottom 2
-					do rr += dr; while(--X >= 0 and not check(rr, cc));
-					if(X < 0) debug_print(cout << "CASE 4-b2 inf loop" << endl);
-				}
-			}
+			// move horizontally and then vertically (case #4a)
+			r1 = r;
+			c1 = c;
+			walk_horz(ar, ac, r1, c1, false);
+			walk_vert(ar, ac, r1, c1, true);
+			// move vertically and then horizontally (case #4b)
+			r1 = r;
+			c1 = c;
+			walk_vert(ar, ac, r1, c1, false);
+			walk_horz(ar, ac, r1, c1, true);
 		}
 	};
 #undef debug_print
@@ -1020,21 +1098,23 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 	VI normal_rows {ur-1, ur, ur+1, ur+2};
 	VI normal_cols {uc-1, uc, uc+1, uc+2};
 
-	// Try many combinations of good and normal rows/columns
-	find_missing(good_rows, good_cols);
-	find_missing(normal_rows, good_cols);
-	find_missing(good_rows, normal_cols);
+	// Try many combinations of good and normal rows/columns (only the default for now)
+//	find_missing(good_rows, good_cols);
+//	find_missing(normal_rows, good_cols);
+//	find_missing(good_rows, normal_cols);
+	find_missing(normal_rows, normal_cols);
 
+	map<int,int> rowCounts, colCounts;
 	blendP.clear();
 	blendP.reserve(16);
-	for(auto& p: S)
+	for(auto& p: found_anchors)
 	{
 		blendP.emplace_back(p);
 		++rowCounts[p._1];
 		++colCounts[p._2];
 	}
 
-//	assert(SZ(blendP) == 16);
+	assert(SZ(blendP) == 16);
 	row_n_4 = SZ(rowCounts) == 4;
 	col_n_4 = SZ(colCounts) == 4;
 }
@@ -1444,10 +1524,10 @@ void TriMeshScene::setScene(const TMesh* T)
 			bool row_n_4, col_n_4;
 			vector<pair<int,int>> blendP;
 
-			if(false)
+			if(true)
 			{
-				T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
-				//T->get16PointsFast(ur, uc, blendP, row_n_4, col_n_4);
+				//T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
+				T->get16PointsFast(ur, uc, blendP, row_n_4, col_n_4);
 			}
 			else // Testing...
 			{
