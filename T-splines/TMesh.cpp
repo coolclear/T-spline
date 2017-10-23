@@ -856,7 +856,10 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 	using P2 = pair<int,int>;
 
 	set<P2> found_anchors;
-	map<int,int> rowQ[2][2], colQ[2][2]; // check for each quadrant of unit(P), at most 2 in each row/col
+	// check for each quadrant of unit(Q), at most 2 in each row/col
+	map<int,int> rowQ[2][2], colQ[2][2];
+	// keep counts for the number of good points found within each quadrant
+	int countQ[2][2] {};
 
 	auto hasVLine = [&](int r, int c)
 	{
@@ -871,55 +874,9 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 		return (gridPoints[r][c].valenceBits & VALENCE_BITS_LEFTRIGHT) != 0;
 	};
 
-/*  expanded rows and columns: not used right now
-
-	// rows/columns that are not void of H-/V-lines
-	VI good_rows(4), good_cols(4);
-	{
-		auto find_rows = [&](int r, int dr, int i, int di, int i_stop)
-		{
-			while(i != i_stop)
-			{
-				// use 4 default rows
-				FOR(c,uc-1,uc+3) if(hasHLine(r, c))
-				{
-					good_rows[i] = r;
-					i += di;
-					break;
-				}
-				r += dr;
-			}
-		};
-		auto find_columns = [&](int c, int dc, int i, int di, int i_stop)
-		{
-			while(i != i_stop)
-			{
-				// use 4 default rows
-				FOR(r,ur-1,ur+3) if(hasVLine(r, c))
-				{
-					good_cols[i] = c;
-					i += di;
-					break;
-				}
-				c += dc;
-			}
-		};
-
-		// Find the two nearest non-empty rows above unit(P)
-		find_rows(ur, -1, 1, -1, -1);
-		// Find the two nearest non-empty rows below unit(P)
-		find_rows(ur+1, 1, 2, 1, 4);
-
-		// Find the two nearest non-empty columns to the left of unit(P)
-		find_columns(uc, -1, 1, -1, -1);
-		// Find the two nearest non-empty columns to the right of unit(P)
-		find_columns(uc+1, 1, 2, 1, 4);
-	}
-*/
-
 #define debug_print(x) (x) // (0) for nothing, (x) for printing
 
-	auto find_missing = [&](VI core_rows, VI core_cols)
+	auto find_missing = [&](const VI& core_rows, const VI& core_cols)
 	{
 		assert(SZ(core_rows) == 4 and SZ(core_cols) == 4);
 
@@ -928,35 +885,46 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 			auto qi = Q.find(x);
 			return qi == Q.end() or qi->_2 < 2; // have found only 0-1 anchor
 		};
-		auto vacant_quadrant_col = [&](int ar, int ac, int c) -> bool
+		auto vacant_quadrant_col = [&](int qr, int qc, int c) -> bool
 		{
-			return checkQ(colQ[ar >> 1][ac >> 1], c);
+			return checkQ(colQ[qr][qc], c);
 		};
-		auto vacant_quadrant_row = [&](int ar, int ac, int r) -> bool
+		auto vacant_quadrant_row = [&](int qr, int qc, int r) -> bool
 		{
-			return checkQ(rowQ[ar >> 1][ac >> 1], r);
+			return checkQ(rowQ[qr][qc], r);
 		};
-		auto vacant_quadrant = [&](int ar, int ac, int r, int c) -> bool
+		auto vacant_quadrant_row_col = [&](int qr, int qc, int r, int c) -> bool
 		{
-			return vacant_quadrant_col(ar, ac, c) and vacant_quadrant_row(ar, ac, r);
+			return vacant_quadrant_col(qr, qc, c) and vacant_quadrant_row(qr, qc, r);
+		};
+		auto quadrant_not_full = [&](int qr, int qc) -> bool
+		{
+			return countQ[qr][qc] < 4;
+		};
+		auto within_quadrant = [&](int qr, int qc, int r, int c) -> bool
+		{
+			if((qr == 0 and r > ur) or (qr == 1 and r <= ur)) return false;
+			if((qc == 0 and c > uc) or (qc == 1 and c <= uc)) return false;
+			return true;
 		};
 
-		auto insert_anchor = [&](int ar, int ac, int r, int c)
+
+		auto insert_anchor = [&](int qr, int qc, int r, int c)
 		{
-			assert(vacant_quadrant(ar, ac, r, c)); // this row and column must not be full (2 anchors already found)
+			assert(vacant_quadrant_row_col(qr, qc, r, c)); // this row and column must not be full (2 anchors already found)
 			assert(found_anchors.find({r,c}) == found_anchors.end()); // not yet found
-			const int qr {ar >> 1};
-			const int qc {ac >> 1};
 			++rowQ[qr][qc][r];
 			++colQ[qr][qc][c];
+			++countQ[qr][qc];
 			found_anchors.emplace(r, c);
 		};
 
-		enum anchors_result {GOOD_ANCHOR, OUTSIDE_ANCHOR, BAD_ANCHOR};
+		enum anchors_result {GOOD_ANCHOR, OUTSIDE_ANCHOR, BAD_ANCHOR, WRONG_QUADRANT};
 
 		// Check if the anchor is good and not yet found, and if so collect it
-		auto check = [&](int ar, int ac, int r, int c) -> anchors_result
+		auto check = [&](int qr, int qc, int r, int c) -> anchors_result
 		{
+			if(not within_quadrant(qr, qc, r, c)) return WRONG_QUADRANT;
 			int r_cap {r};
 			int c_cap {c};
 			cap(r_cap, c_cap);
@@ -969,9 +937,9 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 
 			if(r_min <= ur and ur < r_max and c_min <= uc and uc < c_max)
 			{
-				if(found_anchors.find({r,c}) == found_anchors.end() and vacant_quadrant(ar, ac, r, c))
+				if(found_anchors.find({r,c}) == found_anchors.end() and vacant_quadrant_row_col(qr, qc, r, c))
 				{
-					insert_anchor(ar, ac, r, c);
+					insert_anchor(qr, qc, r, c);
 					return GOOD_ANCHOR;
 				}
 				else return BAD_ANCHOR;
@@ -979,129 +947,55 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 			return OUTSIDE_ANCHOR;
 		};
 
-		// Walk through the mesh vertically/horizontally to find a good anchor or a point to switch direction
-		// will only return true if do_check == true and a good anchor is found
-		auto walk_vert = [&](int ar, int ac, int& r, int c, bool do_check) -> bool
-		{
-			int h_seen {0};
-			int dr {(ar < 2) ? -1: 1}; // top 2 or bottom 2
-
-			while(h_seen < 2) // will consider at at most two rows with H-lines
-			{
-				if(hasHLine(r, c))
-				{
-					++h_seen;
-					if(vacant_quadrant_row(ar, ac, r)) // will visit this row only if not full
-					{
-						if(do_check) // check point now
-						{
-							auto res = check(ar, ac, r, c);
-							if(res != BAD_ANCHOR) return res == GOOD_ANCHOR;
-						}
-						else break; // not checking now, but planning to switch direction
-					}
-				}
-				r += dr;
-			}
-			return false;
-		};
-		auto walk_horz = [&](int ar, int ac, int r, int& c, bool do_check) -> bool
-		{
-			int v_seen {0};
-			int dc {(ac < 2) ? -1: 1}; // top 2 or bottom 2
-
-			while(v_seen < 2) // will consider at most two columns with V-lines
-			{
-				if(hasVLine(r, c))
-				{
-					++v_seen;
-					if(vacant_quadrant_col(ar, ac, c)) // will visit this column only if not full
-					{
-						if(do_check) // check point now
-						{
-							auto res = check(ar, ac, r, c);
-							if(res != BAD_ANCHOR) return res == GOOD_ANCHOR;
-						}
-						else break; // not checking now, but planning to switch direction
-					}
-				}
-				c += dc;
-			}
-			return false;
-		};
-
-		/*
-		 * Steps for finding all 16 anchors
-		 *  1) pick all existing anchors within the default surrounding box of unit(P)
-		 *  2) find all horizontal/vertical missing anchors
-		 *  3) find the remaining ill-missing anchors
-		 *    a) replace missing V-lines with solid lines, find a temporary vertex v (as in (2) above),
-		 *       revert the V-lines back, and do the same for H-lines (2) starting at v.
-		 *       Use the tiled floors to check if the anchor is the correct replacement.
-		 *       Repeat but with H-lines first, then V-lines.
-		 *
-		 *  - we assume that the area unit(P) is de-Boor-suitable
-		 *
-		 *  - for each quadrant of unit(P), there must be 4 anchors, and at most 2 per row/column
-		 *    (we will use this restriction to skip row/column that is full)
-		 *
-		 *  - depending on the allowed blending directions (determined by T-junction boxes),
-		 *    we may be able to determine which four rows and/or columns the blending anchors
-		 *    will reside in after we have collected some good anchors. For example:
-		 *     + if both directions, then we only need to know which four rows and columns
-		 *     + if row-first only, find which four rows only contain good anchors
-		 *
-		 *  - we can possibly terminate search
-		 *
-		 *  - aggressive search: treat each missing vertex as an ill-missing vertex
-		 *    and keep trying for all directions even if a replacement for it has been found
-		 */
-
 		// Collect all non-missing vertices (Case #1)
-		bool missing[4][4];
 		FOR(ar,0,4) FOR(ac,0,4)
 		{
 			int rr {core_rows[ar]};
 			int cc {core_cols[ac]};
-			missing[ar][ac] = (check(ar, ac, rr, cc) != GOOD_ANCHOR);
+			check(ar >> 1, ac >> 1, rr, cc);
 		}
 
-		// For each missing vertex, find (all of) its replacement(s), aggressively
-		FOR(ar,0,4) FOR(ac,0,4) if(missing[ar][ac])
+		// Find missing vertices inside each quadrant using DFS with depth 2 + 2
+		FOR(qr,0,2) FOR(qc,0,2) if(quadrant_not_full(qr,qc))
 		{
-			const int r {core_rows[ar]};
-			const int c {core_cols[ac]};
-			int r1, c1;
+			const int dr {qr ? +1 : -1};
+			const int dc {qc ? +1 : -1};
+			function<void (int, int, int, int)> dfs = [&](int r, int c, int r_rem, int c_rem)
+			{
+//				cout << "dfs " << r << ' ' << c << ' ' << r_rem << ' ' << c_rem << endl;
+				check(qr, qc, r, c);
 
-			// move vertically only (case #2)
-			r1 = r;
-			walk_vert(ar, ac, r1, c, true);
+				if(not quadrant_not_full(qr,qc)) return;
+				if(r_rem > 0)
+				{
+					int r1 {r};
+					do
+						r1 += dr;
+					while(not hasHLine(r1, c));
+					dfs(r1, c, r_rem-1, c_rem);
+				}
 
-			// move horizontally only (case #3)
-			c1 = c;
-			walk_horz(ar, ac, r, c1, true);
+				if(not quadrant_not_full(qr,qc)) return;
+				if(c_rem > 0)
+				{
+					int c1 {c};
+					do
+						c1 += dc;
+					while(not hasVLine(r, c1));
+					dfs(r, c1, r_rem, c_rem-1);
+				}
+			};
 
-			// move horizontally and then vertically (case #4a)
-			r1 = r;
-			c1 = c;
-			walk_horz(ar, ac, r1, c1, false);
-			walk_vert(ar, ac, r1, c1, true);
-			// move vertically and then horizontally (case #4b)
-			r1 = r;
-			c1 = c;
-			walk_vert(ar, ac, r1, c1, false);
-			walk_horz(ar, ac, r1, c1, true);
+			dfs(ur + 1 - qr, uc + 1 - qc, 2, 2);
+			assert(not quadrant_not_full(qr,qc));
+
+//			cout << "after looking at " << qr << ' ' << qc << " : " << countQ[qr][qc];
 		}
 	};
 #undef debug_print
 
 	VI normal_rows {ur-1, ur, ur+1, ur+2};
 	VI normal_cols {uc-1, uc, uc+1, uc+2};
-
-	// Try many combinations of good and normal rows/columns (only the default for now)
-//	find_missing(good_rows, good_cols);
-//	find_missing(normal_rows, good_cols);
-//	find_missing(good_rows, normal_cols);
 	find_missing(normal_rows, normal_cols);
 
 	map<int,int> rowCounts, colCounts;
@@ -1482,7 +1376,7 @@ void TriMeshScene::setScene(const TMesh* T)
 		}
 		setCurve(P);
 	}
-	else // B-spline
+	else if(false) // B-spline
 	{
 		cout << "A" << endl;
 		VVP3 S;
@@ -1635,7 +1529,7 @@ void TriMeshScene::setScene(const TMesh* T)
 		setMesh(S);
 	}
 
-	if(false) // de Boor
+	if(true) // de Boor
 	{
 		vector<VVP3> Ss;
 		VVP3 S;
@@ -1677,7 +1571,7 @@ void TriMeshScene::setScene(const TMesh* T)
 			bool row_n_4, col_n_4;
 			vector<pair<int,int>> blendP;
 
-			if(true)
+			if(false)
 			{
 				//T->get16Points(ur, uc, blendP, row_n_4, col_n_4);
 				T->get16PointsFast(ur, uc, blendP, row_n_4, col_n_4);
