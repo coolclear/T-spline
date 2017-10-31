@@ -92,6 +92,7 @@ public:
 	vector<VI> knotsCols, knotsRows; // indices, per column/row, discarding unused ones
 	vector<VI> blendDir; // for each unit element whether it is allowed to blend
 	                     // by row (0-bit) and/or column (1-bit) first
+	vector<VI> sb2, sb4, bad;
 
 	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
@@ -101,6 +102,8 @@ public:
 	bool meshToFile(const string &path);
 	bool useVertex(int r, int c) const;
 	void cap(int& r, int& c) const;
+	VI getHV(int r, int c) const;
+	VI getVV(int r, int c) const;
 
 	static bool validateDimensionsAndDegrees(int r, int c, int rd, int cd);
 	static bool validateKnots(const vector<double> &knots, int n, int deg);

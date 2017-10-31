@@ -1,3 +1,4 @@
+
 #include "Rendering/TopologyViewer.h"
 #include "GUI/TopologyWindow.h"
 
@@ -51,8 +52,8 @@ void TopologyViewer::draw()
 
 	set2DProjection();
 
-	static Color colorActive(1,1,1); // Active line (white)
-	static Color colorInactive(0.2,0.2,0.2); // Inactive line (dark gray)
+	static Color colorActive(0.7,0.7,0.7); // Active line (white)
+	static Color colorInactive(0.1,0.1,0.1); // Inactive line (dark gray)
 	static Color colorMark(0.5,0.5,0.5); // Marks for 1D-grid (gray)
 
 	// Draw grid lines (1D or 2D)
@@ -100,9 +101,9 @@ void TopologyViewer::draw()
 	{
 		// Thicken the highlighted line
 		if(highlightDir == 1 and r == highlightRow and c == highlightCol)
-			glLineWidth(3);
+			glLineWidth(4);
 		else
-			glLineWidth(1);
+			glLineWidth(2);
 
 		if(_mesh->gridH[r][c].on) // H-line active?
 			glColor3dv(&colorActive[0]);
@@ -122,7 +123,7 @@ void TopologyViewer::draw()
 		if(highlightDir == 2 and r == highlightRow and c == highlightCol)
 			glLineWidth(3);
 		else
-			glLineWidth(1);
+			glLineWidth(2);
 
 		if(_mesh->gridV[r][c].on) // V-line active?
 			glColor3dv(&colorActive[0]);
@@ -192,11 +193,10 @@ void TopologyViewer::draw()
 
 
 		// Draw vertices
-		Color v3Color(0.1, 0.3, 0.8); // blue for valence 3
+		Color v3Color(0.0, 0.3, 1.0); // blue for valence 3
 		Color v4Color(0.3, 0.3, 0.3); // gray for valence 4
 		Color vBadColor(1, 0.2, 0.2); // red for bad vertices
 
-		glPointSize(6);
 		glBegin(GL_POINTS);
 		FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
 		{
@@ -204,8 +204,12 @@ void TopologyViewer::draw()
 
 			if(vertexType == VALENCE_INVALID or vertexType >= 3)
 			{
+				glPointSize(6);
 				if(vertexType == 3)
+				{
+					glPointSize(8);
 					glColor3dv(&v3Color[0]);
+				}
 				else if(vertexType == 4)
 					glColor3dv(&v4Color[0]);
 				else // vertexType == VALENCE_INVALID
@@ -261,6 +265,97 @@ void TopologyViewer::draw()
 			}
 		}
 
+		// Show all points that don't partially overlap with the current point
+		if(highlightDir == 3)
+		{
+			glBegin(GL_POINTS);
+			glColor3d(1,0.5,0);
+			VI hv {_mesh->getHV(highlightRow, highlightCol)};
+			VI vv {_mesh->getVV(highlightRow, highlightCol)};
+			auto overlap = [&](const VI& A, const VI& B) -> bool
+			{
+				auto check1 = [&](const VI& A, const VI& B) -> bool
+				{
+					for(int a: A) FOR(i,0,4)
+					{
+						if(B[i] <= a and a < B[i+1] and a != B[i] and a != B[i+1])
+							return false;
+					}
+					return true;
+				};
+				return check1(A,B) and check1(B,A);
+			};
+
+			FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
+			{
+				if(_mesh->useVertex(r,c) and
+					not overlap(hv,_mesh->getHV(r,c)) and
+					not overlap(vv,_mesh->getVV(r,c)))
+				{
+					gridVertex2d(r, c);
+				}
+			}
+			glEnd();
+		}
+
+		// Show all unit elements covered by at least one of {sb4, sb2, bad}
+		FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols)
+		{
+			//if(_mesh->bad[r][c] == 0) continue;
+
+			if(true)
+			{
+				int b {/*_mesh->sb2[r][c] || */_mesh->bad[r][c]};
+				if(_mesh->sb4[r][c])
+				{
+					if(b) glColor3d(0,0.2,0); // covered by both sb4 and sb2+bad
+					else glColor3d(0.4,0.6,0); // only covered by sb4
+				}
+				else
+				{
+					if(b) glColor3d(0.8,0.4,0); // only covered by sb2+bad
+					else continue; // not covered
+				}
+			}
+
+			//glColor3d(0.8,0.4,0);
+			//cout << r << ' ' << c << ' ';
+
+			const double margin_small {0.3};
+			const double margin_large {0.3};
+
+			double r0 {r + margin_small};
+			double c0 {c + margin_small};
+			double r1 {r + 1 - margin_small};
+			double c1 {c + 1 - margin_small};
+
+			glBegin(GL_QUADS);
+			gridVertex2d(r0, c0);
+			gridVertex2d(r1, c0);
+			gridVertex2d(r1, c1);
+			gridVertex2d(r0, c1);
+			glEnd();
+		}
+
+		// Show all bad v-edges
+		glLineWidth(3);
+		glBegin(GL_LINES);
+		glColor3d(0.8,0.4,0);
+		FOR(c,0,_mesh->cols+1) FOR(i,1,SZ(_mesh->knotsCols[c])-2)
+		{
+			int r1 {_mesh->knotsCols[c][i]};
+			int r2 {_mesh->knotsCols[c][i+1]};
+			if(_mesh->useVertex(r1,c) and _mesh->useVertex(r2,c) and _mesh->getHV(r1,c) != _mesh->getHV(r2,c))
+			{
+				FOR(r,r1,r2)
+				{
+					gridVertex2d(r, c);
+					gridVertex2d(r+1, c);
+				}
+			}
+		}
+		glEnd();
+
 		// Display the tiled floor of an anchor or the blending points for a unit element
 		if(_mesh->isAS and highlightDir >= 3)
 		{
@@ -308,6 +403,35 @@ void TopologyViewer::draw()
 				gridVertex2d(r_min, c_max);
 				gridVertex2d(r_max, c_max);
 				gridVertex2d(r_max, c_min);
+				glEnd();
+
+				glBegin(GL_POINTS);
+				glColor3d(1,0.5,0);
+				VI hv {_mesh->getHV(highlightRow, highlightCol)};
+				VI vv {_mesh->getVV(highlightRow, highlightCol)};
+				auto overlap = [&](const VI& A, const VI& B) -> bool
+				{
+					auto check1 = [&](const VI& A, const VI& B) -> bool
+					{
+						for(int a: A) FOR(i,0,4)
+						{
+							if(B[i] <= a and a < B[i+1] and a != B[i] and a != B[i+1])
+								return false;
+						}
+						return true;
+					};
+					return check1(A,B) and check1(B,A);
+				};
+
+				FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
+				{
+					if(_mesh->useVertex(r,c) and
+						not overlap(hv,_mesh->getHV(r,c)) and
+						not overlap(vv,_mesh->getVV(r,c)))
+					{
+						gridVertex2d(r, c);
+					}
+				}
 				glEnd();
 			}
 

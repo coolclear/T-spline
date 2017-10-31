@@ -331,14 +331,17 @@ bool TMesh::meshFromFile(const string &path)
 /*
 * Saves T-mesh information to the file specified by a given path.
 * Returns 1 on success, 0 on failure.
+* Only allows AS T-meshes to be saved (whether or not DS)
 */
 bool TMesh::meshToFile(const string &path)
 {
+	assert(isAS);
+
 	// Try to open the file
 	ofstream fs(path);
 	if(not fs.is_open()) // File is not found or cannot be opened
 	{
-		fprintf(stderr, "Failed to open a T-mesh file for writing\n");
+		cerr << "Failed to open a T-mesh file for writing" << endl;
 		return false;
 	}
 
@@ -448,6 +451,34 @@ void TMesh::cap(int& r, int& c) const
 	c = max(0, min(cols, c));
 }
 
+VI TMesh::getHV(int r, int c) const
+{
+	if(not useVertex(r,c)) return {};
+	VI A;
+	A.reserve(5);
+	int h {gridPoints[r][c].hId};
+	FOR(j,0,5)
+	{
+		int id {max(0,min(SZ(knotsRows[r])-1, h + j - 2))};
+		A.push_back(knotsRows[r][id]);
+	}
+	return move(A);
+}
+
+VI TMesh::getVV(int r, int c) const
+{
+	if(not useVertex(r,c)) return {};
+	VI A;
+	A.reserve(5);
+	int v {gridPoints[r][c].vId};
+	FOR(j,0,5)
+	{
+		int id {max(0,min(SZ(knotsCols[c])-1, v + j - 2))};
+		A.push_back(knotsCols[c][id]);
+	}
+	return move(A);
+}
+
 // Mark vertices along the extension line (degrees - 1 steps forward, 1 step backward)
 void TMesh::markExtension(int r0, int c0, int dr, int dc, bool isVert, int& minRes, int& maxRes)
 {
@@ -509,6 +540,11 @@ void TMesh::markExtension(int r0, int c0, int dr, int dc, bool isVert, int& minR
 void TMesh::updateMeshInfo()
 {
 	validVertices = true;
+
+	blendDir.assign(rows, VI(cols, DIR_BOTH));
+	sb2.assign(rows, VI(cols, 0));
+	sb4.assign(rows, VI(cols, 0));
+	bad.assign(rows, VI(cols, 0));
 
 	FOR(r,0,rows + 1) FOR(c,0,cols + 1)
 	{
@@ -692,8 +728,6 @@ void TMesh::updateMeshInfo()
 			K.push_back(cols + 1);
 		}
 
-		blendDir.assign(rows, VI(cols, DIR_BOTH));
-
 		// Compute T-junction extensions (ignore boundary vertices)
 		FOR(r,1,rows) FOR(c,1,cols)
 		{
@@ -739,6 +773,20 @@ void TMesh::updateMeshInfo()
 						// Mark unit element "cannot blend first by column"
 						blendDir[r][c] &= ~DIR_COLUMN;
 					}
+
+					FOR(r,minRes,maxRes+1) FOR(c,c_min,c_max)
+					{
+						sb2[r][c] = 1;
+						//cout << "sb2 " << r << ' ' << c << endl;
+					}
+
+					c_min = knotsRows[r][max(h-4, 1)];
+					c_max = knotsRows[r][min(h+4, SZ(knotsRows[r])-2)];
+					FOR(r,minRes,maxRes+1) FOR(c,c_min,c_max)
+					{
+						sb4[r][c] = 1;
+						//cout << "sb4 " << r << ' ' << c << endl;
+					}
 				}
 				else
 				{
@@ -752,6 +800,33 @@ void TMesh::updateMeshInfo()
 						blendDir[r][c] &= ~DIR_ROW;
 					}
 				}
+			}
+		}
+
+		FOR(c,0,cols+1)
+		{
+			int r_last {-1};
+			FOR(r,0,rows+1) if(useVertex(r,c))
+			{
+				if(r_last != -1 and gridV[r-1][c].on)
+				{
+					VI A[2];
+					VI X {r_last, r};
+					FOR(i,0,2) A[i] = getHV(X[i], c);
+
+					if(A[0] != A[1])
+					{
+						int r_min[2], r_max[2], c_min[2], c_max[2];
+						FOR(i,0,2) getTiledFloorRange(X[i], c, r_min[i], r_max[i], c_min[i], c_max[i]);
+						int r0 {max(0,max(r_min[0], r_min[1]))};
+						int r1 {min(rows,min(r_max[0], r_max[1]))};
+						int c0 {max(0,max(c_min[0], c_min[1]))};
+						int c1 {min(cols,min(c_max[0], c_max[1]))};
+						FOR(rr,r0,r1) FOR(cc,c0,c1) bad[rr][cc] = 1;
+					}
+				}
+
+				r_last = r;
 			}
 		}
 
