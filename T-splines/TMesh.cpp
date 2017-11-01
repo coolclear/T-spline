@@ -817,6 +817,7 @@ void TMesh::updateMeshInfo()
 					if(A[0] != A[1])
 					{
 						int r_min[2], r_max[2], c_min[2], c_max[2];
+
 						FOR(i,0,2) getTiledFloorRange(X[i], c, r_min[i], r_max[i], c_min[i], c_max[i]);
 						int r0 {max(0,max(r_min[0], r_min[1]))};
 						int r1 {min(rows,min(r_max[0], r_max[1]))};
@@ -1061,7 +1062,7 @@ void TMesh::get16PointsFast(int ur, int uc, vector<pair<int,int>>& blendP, bool&
 				}
 			};
 
-			dfs(ur + 1 - qr, uc + 1 - qc, 2, 2);
+			dfs(ur + 1 - qr, uc + 1 - qc, 3, 3);
 			assert(not quadrant_not_full(qr,qc));
 
 //			cout << "after looking at " << qr << ' ' << qc << " : " << countQ[qr][qc];

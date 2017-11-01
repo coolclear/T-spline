@@ -83,19 +83,22 @@ void GeometryWindow::setupControlPoints(TMesh *tmesh)
 
 void GeometryWindow::setupSurface(TMesh *tmesh)
 {
-	static TMesh *lastT = NULL;
-	if(tmesh != NULL) // update to the new non-null mesh object
-		lastT = tmesh;
+	static TMesh* lastT = nullptr;
+	// update to the new non-null AS mesh object, while preventing non-AS meshes
+	if(tmesh != nullptr) lastT = tmesh;
 
-	sceneLock.lock();
+	if(lastT != nullptr and lastT->isAS)
+	{
+		sceneLock.lock();
 
-	lastT->lock.lock();
-	_scene.setScene(lastT);
-	lastT->lock.unlock();
+		lastT->lock.lock();
+		_scene.setScene(lastT);
+		lastT->lock.unlock();
 
-	_renderer.setTriMeshScene(&_scene);
+		_renderer.setTriMeshScene(&_scene);
 
-	sceneLock.unlock();
+		sceneLock.unlock();
+	}
 }
 
 GeometryWindow::GeometryWindow(int x, int y, int w, int h, const char* l)
