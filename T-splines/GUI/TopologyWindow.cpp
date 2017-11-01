@@ -9,7 +9,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-TMesh TopologyWindow::_mesh(7, 7, 3, 3);
+TMesh TopologyWindow::_mesh(8, 12, 3, 3);
 
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
@@ -146,6 +146,12 @@ void TopologyWindow::loadMesh(char *filePath)
 
 void TopologyWindow::saveMesh()
 {
+	if(not _mesh.isAS)
+	{
+		cerr << "The T-mesh to be saved must be analysis-suitable (AS)" << endl;
+		return;
+	}
+
 	char* filePath = fl_file_chooser("Save T-Mesh", ".txt (*.txt)", "./files/", 0);
 	if(not filePath)
 	{

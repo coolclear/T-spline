@@ -261,6 +261,44 @@ void TopologyViewer::draw()
 			}
 		}
 
+		FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols)
+		{
+			//if(_mesh->bad[r][c] == 0) continue;
+
+			if(true)
+			{
+				int b {_mesh->sb2[r][c] || _mesh->bad[r][c]};
+				if(_mesh->sb4[r][c])
+				{
+					if(b) glColor3d(0,0.1,0);
+					else glColor3d(0.4,0.4,0);
+				}
+				else
+				{
+					if(b) glColor3d(0.8,0.4,0);
+					else continue;
+				}
+			}
+
+			//glColor3d(0.8,0.4,0);
+			//cout << r << ' ' << c << ' ';
+
+			const double margin_small {0.3};
+			const double margin_large {0.3};
+
+			double r0 {r + margin_small};
+			double c0 {c + margin_small};
+			double r1 {r + 1 - margin_small};
+			double c1 {c + 1 - margin_small};
+
+			glBegin(GL_QUADS);
+			gridVertex2d(r0, c0);
+			gridVertex2d(r1, c0);
+			gridVertex2d(r1, c1);
+			gridVertex2d(r0, c1);
+			glEnd();
+		}
+
 		// Display the tiled floor of an anchor or the blending points for a unit element
 		if(_mesh->isAS and highlightDir >= 3)
 		{

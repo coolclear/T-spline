@@ -66,18 +66,18 @@ void MeshRenderer::draw()
 				double color[3];
 
 				// Scheme 1
-				/*
+				
 				double sum = 0;
 				FOR(i,0,3)
 				{
 					double a = abs(norm[i]);
-					sum += color[i] = a;
+					sum += color[i] = a*a*a + 0.2;
 				}
 				FOR(i,0,3) color[i] /= sum;
 				//*/
 
 				// Scheme 2
-				FOR(i,0,3) color[i] = ((norm[i] + 1) * 0.5) * (0.5 * abs(norm[i]) + 0.5);
+				//FOR(i,0,3) color[i] = (abs(norm[i]) * 0.5) * (0.5 * abs(norm[i]) + 0.5);
 
 				glColor3dv(color);
 			};

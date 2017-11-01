@@ -92,6 +92,7 @@ public:
 	vector<VI> knotsCols, knotsRows; // indices, per column/row, discarding unused ones
 	vector<VI> blendDir; // for each unit element whether it is allowed to blend
 	                     // by row (0-bit) and/or column (1-bit) first
+	vector<VI> sb2, sb4, bad;
 
 	TMesh(int r, int c, int dv, int dh, bool autoFill = true);
 	~TMesh();
