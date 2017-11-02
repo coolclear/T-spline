@@ -66,7 +66,6 @@ void MeshRenderer::draw()
 				double color[3];
 
 				// Scheme 1
-				
 				double sum = 0;
 				FOR(i,0,3)
 				{

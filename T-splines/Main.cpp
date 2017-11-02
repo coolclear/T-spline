@@ -12,9 +12,9 @@ int main(int argc, char** argv)
 	SceneInfo::initScene();
 
 	TopologyWindow topology(20, 565, 650, 310, "T-Mesh Topology");
-	GeometryWindow geometry(680, 40, 700, 700, "T-Mesh Geometry");
+	//GeometryWindow geometry(680, 40, 700, 700, "T-Mesh Geometry");
 
-	topology.setup(&geometry);
+	topology.setup(nullptr);//&geometry);
 
 	return Fl::run();
 }

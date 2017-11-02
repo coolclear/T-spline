@@ -1,8 +1,5 @@
-
 #include "Rendering/TopologyViewer.h"
 #include "GUI/TopologyWindow.h"
-
-#include <GL/glu.h>
 
 using namespace std;
 
@@ -52,9 +49,13 @@ void TopologyViewer::draw()
 
 	set2DProjection();
 
-	static Color colorActive(0.7,0.7,0.7); // Active line (white)
+	static Color colorActive(0.5,0.5,0.5); // Active line (white)
 	static Color colorInactive(0.1,0.1,0.1); // Inactive line (dark gray)
 	static Color colorMark(0.5,0.5,0.5); // Marks for 1D-grid (gray)
+
+	static int tick {0};
+	static const int tick_max {40};
+	tick = (tick + 1) % tick_max;
 
 	// Draw grid lines (1D or 2D)
 	const double sx = (_mesh->cols > 0) ? canvasLen / _mesh->cols : 0;
@@ -95,167 +96,273 @@ void TopologyViewer::draw()
 	}
 	glEnd();
 
+	auto draw_line = [&](int r_end, int c_end, int dr, int dc, int dir, const vector<vector<EdgeInfo>>& EI)
+	{
+		FOR(r,0,r_end) FOR(c,0,c_end)
+		{
+			// Thicken and blink the highlighted line
+			if(tick*2 < tick_max and highlightDir == dir and r == highlightRow and c == highlightCol)
+				glLineWidth(6);
+			else
+				glLineWidth(2);
+
+			if(EI[r][c].on) // H-/V-line active?
+				glColor3dv(&colorActive[0]);
+			else
+				glColor3dv(&colorInactive[0]);
+
+			glBegin(GL_LINES);
+			gridVertex2d(r, c);
+			gridVertex2d(r + dr, c + dc);
+			glEnd();
+		}
+	};
 
 	// Draw H-lines
-	FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
-	{
-		// Thicken the highlighted line
-		if(highlightDir == 1 and r == highlightRow and c == highlightCol)
-			glLineWidth(4);
-		else
-			glLineWidth(2);
-
-		if(_mesh->gridH[r][c].on) // H-line active?
-			glColor3dv(&colorActive[0]);
-		else
-			glColor3dv(&colorInactive[0]);
-
-		glBegin(GL_LINES);
-		gridVertex2d(r, c);
-		gridVertex2d(r, c + 1);
-		glEnd();
-	}
-
+	draw_line(_mesh->rows + 1, _mesh->cols, 0, 1, 1, _mesh->gridH);
 	// Draw V-lines
-	FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
-	{
-		// Thicken the highlighted line
-		if(highlightDir == 2 and r == highlightRow and c == highlightCol)
-			glLineWidth(3);
-		else
-			glLineWidth(2);
+	draw_line(_mesh->rows, _mesh->cols + 1, 1, 0, 2, _mesh->gridV);
 
-		if(_mesh->gridV[r][c].on) // V-line active?
-			glColor3dv(&colorActive[0]);
-		else
-			glColor3dv(&colorInactive[0]);
-
-		glBegin(GL_LINES);
-		gridVertex2d(r, c);
-		gridVertex2d(r + 1, c);
-		glEnd();
-	}
 
 
 	if(_mesh->rows * _mesh->cols > 0)
 	{
-		static Color colorBad(1, 0, 0); // Bad line (red)
-		static Color colorExtendH(0, 0.7, 0); // H-extension (green)
-		static Color colorExtendV(1, 0.5, 0); // V-extension (orange)
-
-		// Draw bad edges (red) and T-junction extensions (H:green, V:orange)
-		if(_mesh->validVertices)
+		/*
+		 * Draw edges ========================================================
+		 */
 		{
-			// Make the line dashed
-			glPushAttrib(GL_ENABLE_BIT);
-			glLineStipple(6, 0xAAAA);
-			glEnable(GL_LINE_STIPPLE);
+			static Color colorBad(1, 0, 0); // Bad line (red)
+			static Color colorExtendH(0, 0.7, 0); // H-extension (green)
+			static Color colorExtendV(0.8, 0.5, 0); // V-extension (orange)
 
-			glLineWidth(1);
-			glBegin(GL_LINES);
-
-			// Draw a (dashed) line of an edge, isVert: H(0) or V(1)
-			auto drawLine = [&](EdgeInfo ei, int r, int c, bool isVert)
+			// Draw bad edges (red) and T-junction extensions (H:green, V:orange)
+			if(_mesh->validVertices)
 			{
-				bool doDraw = false;
-				if(not ei.valid)
+				// Make the line dashed
+				glPushAttrib(GL_ENABLE_BIT);
+				glLineStipple(6, 0xAAAA);
+				glEnable(GL_LINE_STIPPLE);
+
+				glLineWidth(2);
+				glBegin(GL_LINES);
+
+				// Draw a (dashed) line of an edge, isVert: H(0) or V(1)
+				auto drawLine = [&](EdgeInfo ei, int r, int c, bool isVert)
 				{
-					doDraw = true;
-					glColor3dv(&colorBad[0]);
-				}
-				else if(_mesh->isAD and ei.extend) // draw T-j.e. only if AD
-				{
-					doDraw = true;
-					if(isVert)
-						glColor3dv(&colorExtendV[0]);
-					else
-						glColor3dv(&colorExtendH[0]);
-				}
+					bool doDraw = false;
+					if(not ei.valid)
+					{
+						doDraw = true;
+						glColor3dv(&colorBad[0]);
+					}
+					else if(_mesh->isAD and ei.extend) // draw T-j.e. only if AD
+					{
+						doDraw = true;
+						if(isVert)
+							glColor3dv(&colorExtendV[0]);
+						else
+							glColor3dv(&colorExtendH[0]);
+					}
 
-				if(doDraw)
-				{
-					gridVertex2d(r, c);
-					gridVertex2d(r + isVert, c + not isVert);
-				}
-			};
+					if(doDraw)
+					{
+						gridVertex2d(r, c);
+						gridVertex2d(r + isVert, c + not isVert);
+					}
+				};
 
-			// Draw bad H-edges or H-T-junction extensions
-			FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
-				drawLine(_mesh->gridH[r][c], r, c, false);
+				// Draw bad H-edges or H-T-junction extensions
+				FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols)
+					drawLine(_mesh->gridH[r][c], r, c, false);
 
-			// Draw bad V-edges or V-T-junction extensions
-			FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
-				drawLine(_mesh->gridV[r][c], r, c, true);
+				// Draw bad V-edges or V-T-junction extensions
+				FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols + 1)
+					drawLine(_mesh->gridV[r][c], r, c, true);
 
-			glEnd();
-			glPopAttrib();
-		}
+				glEnd();
+				glPopAttrib();
+			}
 
-
-		// Draw vertices
-		Color v3Color(0.0, 0.3, 1.0); // blue for valence 3
-		Color v4Color(0.3, 0.3, 0.3); // gray for valence 4
-		Color vBadColor(1, 0.2, 0.2); // red for bad vertices
-
-		glBegin(GL_POINTS);
-		FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
-		{
-			int vertexType = _mesh->gridPoints[r][c].valenceType;
-
-			if(vertexType == VALENCE_INVALID or vertexType >= 3)
+			if(_mesh->isAD)
 			{
-				glPointSize(6);
-				if(vertexType == 3)
+				// Show all bad v-edges
+				glLineWidth(3);
+				glBegin(GL_LINES);
+				glColor3d(0.8,0.4,0);
+				FOR(c,0,_mesh->cols+1) FOR(i,1,SZ(_mesh->knotsCols[c])-2)
 				{
-					glPointSize(8);
-					glColor3dv(&v3Color[0]);
+					int r1 {_mesh->knotsCols[c][i]};
+					int r2 {_mesh->knotsCols[c][i+1]};
+					if(_mesh->useVertex(r1,c) and _mesh->useVertex(r2,c) and _mesh->getHV(r1,c) != _mesh->getHV(r2,c))
+					{
+						gridVertex2d(r1, c);
+						gridVertex2d(r2, c);
+					}
 				}
-				else if(vertexType == 4)
-					glColor3dv(&v4Color[0]);
-				else // vertexType == VALENCE_INVALID
-					glColor3dv(&vBadColor[0]);
-
-				gridVertex2d(r, c);
+				glEnd();
 			}
 		}
-		glEnd();
+		/*
+		 * End edges =========================================================
+		 */
 
-
-		// Mark points that are intersections of V-H T-junction extensions
-		if(_mesh->validVertices and _mesh->isAD and not _mesh->isAS)
+		/*
+		 * Draw vertices =====================================================
+		 */
 		{
-			glLineWidth(2);
-			glColor3d(1, 0, 0); // red
-			glBegin(GL_LINES);
+			// Draw vertices
+			Color v3Color(0.0, 0.4, 1.0); // blue for valence 3
+			Color v4Color(0.5, 0.5, 0.5); // gray for valence 4
+			Color vBadColor(1, 0.2, 0.2); // red for bad vertices
+
 			FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
 			{
-				if(_mesh->gridPoints[r][c].extendFlag == EXTENSION_BOTH)
+				int vertexType = _mesh->gridPoints[r][c].valenceType;
+
+				glPointSize(6);
+				if(vertexType == VALENCE_INVALID or vertexType >= 3)
 				{
-					const double x = c * sx + mx;
-					const double y = r * sy + my;
-					glVertex2d(x - 0.02, y);
-					glVertex2d(x + 0.02, y);
-					glVertex2d(x, y - 0.02);
-					glVertex2d(x, y + 0.02);
+					if(vertexType == 3)
+						glColor3dv(&v3Color[0]);
+					else if(vertexType == 4)
+					{
+						glPointSize(4);
+						glColor3dv(&v4Color[0]);
+					}
+					else // vertexType == VALENCE_INVALID
+						glColor3dv(&vBadColor[0]);
+				}
+				else if(vertexType > 0)
+				{
+					glPointSize(2);
+					glColor3dv(&colorActive[0]);
+				}
+
+				if(vertexType != 0)
+				{
+					glBegin(GL_POINTS);
+					gridVertex2d(r, c);
+					glEnd();
 				}
 			}
-			glEnd();
-		}
 
-		// Mark non-de-Boor unit elements
-		if(_mesh->isAS and not _mesh->isDS)
-		{
-			FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols) if(_mesh->blendDir[r][c] == DIR_NEITHER)
+			// Mark points that are intersections of V-H T-junction extensions
+			if(_mesh->validVertices and _mesh->isAD and not _mesh->isAS)
 			{
-				const double margin_small {0.1};
-				const double margin_large {0.4};
+				glLineWidth(2);
+				glColor3d(1, 0, 0); // red
+				glBegin(GL_LINES);
+				FOR(r,0,_mesh->rows + 1) FOR(c,0,_mesh->cols + 1)
+				{
+					if(_mesh->gridPoints[r][c].extendFlag == EXTENSION_BOTH)
+					{
+						const double x = c * sx + mx;
+						const double y = r * sy + my;
+						glVertex2d(x - 0.02, y);
+						glVertex2d(x + 0.02, y);
+						glVertex2d(x, y - 0.02);
+						glVertex2d(x, y + 0.02);
+					}
+				}
+				glEnd();
+			}
+
+			// Show all points that don't partially overlap with the current point
+			if(highlightDir == 3)
+			{
+				glPointSize(5);
+				glBegin(GL_POINTS);
+				glColor3d(1,0,0);
+				VI hv {_mesh->getHV(highlightRow, highlightCol)};
+				VI vv {_mesh->getVV(highlightRow, highlightCol)};
+				auto overlap = [&](const VI& A, const VI& B) -> bool
+				{
+					auto check1 = [&](const VI& A, const VI& B) -> bool
+					{
+						for(int a: A) FOR(i,0,4)
+						{
+							if(B[i] <= a and a < B[i+1] and a != B[i] and a != B[i+1])
+								return false;
+						}
+						return true;
+					};
+					return check1(A,B) and check1(B,A);
+				};
+
+				FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
+				{
+					if(_mesh->useVertex(r,c) and
+						not overlap(hv,_mesh->getHV(r,c)) and
+						not overlap(vv,_mesh->getVV(r,c)))
+					{
+						gridVertex2d(r, c);
+					}
+				}
+				glEnd();
+			}
+		}
+		/*
+		 * End vertices ======================================================
+		 */
+
+		/*
+		 * Draw elements =====================================================
+		 */
+		{
+			// Mark non-de-Boor unit elements
+			if(_mesh->isAS and not _mesh->isDS)
+			{
+				FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols) if(_mesh->blendDir[r][c] == DIR_NEITHER)
+				{
+					const double margin_small {0.1};
+					const double margin_large {0.4};
+
+					double r0 {r + margin_small};
+					double c0 {c + margin_small};
+					double r1 {r + 1 - margin_small};
+					double c1 {c + 1 - margin_small};
+
+					glColor3d(0.3,0,0); // dark red
+					glBegin(GL_QUADS);
+					gridVertex2d(r0, c0);
+					gridVertex2d(r1, c0);
+					gridVertex2d(r1, c1);
+					gridVertex2d(r0, c1);
+					glEnd();
+				}
+			}
+
+			// Show all unit elements covered by at least one of {sb4, sb2, bad}
+			FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols)
+			{
+				//if(_mesh->bad[r][c] == 0) continue;
+
+				if(true)
+				{
+					int b {/*_mesh->sb2[r][c] || */_mesh->bad[r][c]};
+					if(_mesh->sb4[r][c])
+					{
+						if(b) glColor3d(0,0.1,0); // covered by both sb4 and sb2+bad
+						else glColor3d(0.4,0.6,0); // only covered by sb4
+					}
+					else
+					{
+						if(b) glColor3d(0.8,0.4,0); // only covered by sb2+bad
+						else continue; // not covered
+					}
+				}
+
+				//glColor3d(0.8,0.4,0);
+				//cout << r << ' ' << c << ' ';
+
+				const double margin_small {0.3};
+				const double margin_large {0.3};
 
 				double r0 {r + margin_small};
 				double c0 {c + margin_small};
 				double r1 {r + 1 - margin_small};
 				double c1 {c + 1 - margin_small};
 
-				glColor3d(0.3,0,0); // dark red
 				glBegin(GL_QUADS);
 				gridVertex2d(r0, c0);
 				gridVertex2d(r1, c0);
@@ -264,10 +371,119 @@ void TopologyViewer::draw()
 				glEnd();
 			}
 		}
+		/*
+		 * End elements ======================================================
+		 */
 
-		// Show all points that don't partially overlap with the current point
-		if(highlightDir == 3)
+
+		// Mark the current unit element and its blending points
+		if(_mesh->isAS and highlightDir == 4)
 		{
+			vector<pair<int,int>> blendP, blendP2, missing, extra;
+			bool row_n_4, col_n_4;
+			//_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
+			_mesh->test1(highlightRow, highlightCol, blendP, blendP2, missing, extra, row_n_4, col_n_4);
+
+			// Mark found or missing blending points (for testing the algorithms in the paper)
+			glPointSize(6);
+			glBegin(GL_POINTS);
+			// all good blending points
+			glColor3d(0, 1, 0.3);
+			for(auto& p: blendP) gridVertex2d(p._1, p._2);
+			// missing points
+			glColor3d(1, 0.2, 0);
+			for(auto& p: missing) gridVertex2d(p._1, p._2);
+			// extra points
+			glColor3d(0.5, 1, 0);
+			for(auto& p: extra) gridVertex2d(p._1, p._2);
+			glEnd();
+
+
+			double r0, r1, c0, c1;
+			const double margin_small {0.1};
+			const double margin_large {0.4};
+
+			// Color green if the unit element is renderable, red otherwise
+			if(row_n_4 or col_n_4) glColor3d(0,0.4,0);
+			else glColor3d(0.7,0,0);
+
+			// Show which directions the unit element can be rendered first
+			if(row_n_4 == col_n_4)
+			{
+				r0 = highlightRow + margin_small;
+				c0 = highlightCol + margin_small;
+				r1 = highlightRow + 1 - margin_small;
+				c1 = highlightCol + 1 - margin_small;
+			}
+			else if(row_n_4)
+			{
+				r0 = highlightRow + margin_large;
+				c0 = highlightCol + margin_small;
+				r1 = highlightRow + 1 - margin_large;
+				c1 = highlightCol + 1 - margin_small;
+			}
+			else // if(col_n_4)
+			{
+				r0 = highlightRow + margin_small;
+				c0 = highlightCol + margin_large;
+				r1 = highlightRow + 1 - margin_small;
+				c1 = highlightCol + 1 - margin_large;
+			}
+
+			glBegin(GL_QUADS);
+			gridVertex2d(r0, c0);
+			gridVertex2d(r1, c0);
+			gridVertex2d(r1, c1);
+			gridVertex2d(r0, c1);
+			glEnd();
+		}
+
+		// Show the tiled floor of an anchor
+		if(_mesh->isAS and highlightDir == 3)
+		{
+			auto getTiledFloorRange = [&](const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max)
+			{
+				auto onVSkel = [&](int r0)
+				{
+					return _mesh->gridPoints[r0][c].valenceType >= 3 or _mesh->gridPoints[r0][c].valenceBits == 12;
+				};
+				auto onHSkel = [&](int c0)
+				{
+					return _mesh->gridPoints[r][c0].valenceType >= 3 or _mesh->gridPoints[r][c0].valenceBits == 3;
+				};
+				r_min = r_max = r;
+				c_min = c_max = c;
+				FOR(k,0,2)
+				{
+					while(--r_min >= 0 and not onVSkel(r_min));
+					while(++r_max <= _mesh->rows and not onVSkel(r_max));
+					while(--c_min >= 0 and not onHSkel(c_min));
+					while(++c_max <= _mesh->cols and not onHSkel(c_max));
+				}
+				r_min = max(r_min, 0);
+				r_max = min(r_max, _mesh->rows);
+				c_min = max(c_min, 0);
+				c_max = min(c_max, _mesh->cols);
+			};
+
+			glPointSize(6);
+			glBegin(GL_POINTS);
+			glColor3d(1,0,1);
+			gridVertex2d(highlightRow, highlightCol);
+			glEnd();
+
+			int r_min, r_max, c_min, c_max;
+			getTiledFloorRange(highlightRow, highlightCol, r_min, r_max, c_min, c_max);
+
+			glColor3d(1,0,1);
+			glLineWidth(2);
+			glBegin(GL_LINE_LOOP);
+			gridVertex2d(r_min, c_min);
+			gridVertex2d(r_min, c_max);
+			gridVertex2d(r_max, c_max);
+			gridVertex2d(r_max, c_min);
+			glEnd();
+
 			glBegin(GL_POINTS);
 			glColor3d(1,0.5,0);
 			VI hv {_mesh->getHV(highlightRow, highlightCol)};
@@ -296,264 +512,6 @@ void TopologyViewer::draw()
 				}
 			}
 			glEnd();
-		}
-
-		// Show all unit elements covered by at least one of {sb4, sb2, bad}
-		FOR(r,0,_mesh->rows) FOR(c,0,_mesh->cols)
-		{
-			//if(_mesh->bad[r][c] == 0) continue;
-
-			if(true)
-			{
-				int b {/*_mesh->sb2[r][c] || */_mesh->bad[r][c]};
-				if(_mesh->sb4[r][c])
-				{
-					if(b) glColor3d(0,0.2,0); // covered by both sb4 and sb2+bad
-					else glColor3d(0.4,0.6,0); // only covered by sb4
-				}
-				else
-				{
-					if(b) glColor3d(0.8,0.4,0); // only covered by sb2+bad
-					else continue; // not covered
-				}
-			}
-
-			//glColor3d(0.8,0.4,0);
-			//cout << r << ' ' << c << ' ';
-
-			const double margin_small {0.3};
-			const double margin_large {0.3};
-
-			double r0 {r + margin_small};
-			double c0 {c + margin_small};
-			double r1 {r + 1 - margin_small};
-			double c1 {c + 1 - margin_small};
-
-			glBegin(GL_QUADS);
-			gridVertex2d(r0, c0);
-			gridVertex2d(r1, c0);
-			gridVertex2d(r1, c1);
-			gridVertex2d(r0, c1);
-			glEnd();
-		}
-
-		// Show all bad v-edges
-		glLineWidth(3);
-		glBegin(GL_LINES);
-		glColor3d(0.8,0.4,0);
-		FOR(c,0,_mesh->cols+1) FOR(i,1,SZ(_mesh->knotsCols[c])-2)
-		{
-			int r1 {_mesh->knotsCols[c][i]};
-			int r2 {_mesh->knotsCols[c][i+1]};
-			if(_mesh->useVertex(r1,c) and _mesh->useVertex(r2,c) and _mesh->getHV(r1,c) != _mesh->getHV(r2,c))
-			{
-				FOR(r,r1,r2)
-				{
-					gridVertex2d(r, c);
-					gridVertex2d(r+1, c);
-				}
-			}
-		}
-		glEnd();
-
-		// Display the tiled floor of an anchor or the blending points for a unit element
-		if(_mesh->isAS and highlightDir >= 3)
-		{
-			auto getTiledFloorRange = [&](const int r, const int c, int& r_min, int& r_max, int& c_min, int& c_max)
-			{
-				auto onVSkel = [&](int r0)
-				{
-					return _mesh->gridPoints[r0][c].valenceType >= 3 or _mesh->gridPoints[r0][c].valenceBits == 12;
-				};
-				auto onHSkel = [&](int c0)
-				{
-					return _mesh->gridPoints[r][c0].valenceType >= 3 or _mesh->gridPoints[r][c0].valenceBits == 3;
-				};
-				r_min = r_max = r;
-				c_min = c_max = c;
-				FOR(k,0,2)
-				{
-					while(--r_min >= 0 and not onVSkel(r_min));
-					while(++r_max <= _mesh->rows and not onVSkel(r_max));
-					while(--c_min >= 0 and not onHSkel(c_min));
-					while(++c_max <= _mesh->cols and not onHSkel(c_max));
-				}
-				r_min = max(r_min, 0);
-				r_max = min(r_max, _mesh->rows);
-				c_min = max(c_min, 0);
-				c_max = min(c_max, _mesh->cols);
-			};
-
-			// Mark the point at which the cursor is pointing
-			if(highlightDir == 3)
-			{
-				glPointSize(6);
-				glBegin(GL_POINTS);
-				glColor3d(1,0,1);
-				gridVertex2d(highlightRow, highlightCol);
-				glEnd();
-
-				int r_min, r_max, c_min, c_max;
-				getTiledFloorRange(highlightRow, highlightCol, r_min, r_max, c_min, c_max);
-
-				glColor3d(1,0,1);
-				glLineWidth(2);
-				glBegin(GL_LINE_LOOP);
-				gridVertex2d(r_min, c_min);
-				gridVertex2d(r_min, c_max);
-				gridVertex2d(r_max, c_max);
-				gridVertex2d(r_max, c_min);
-				glEnd();
-
-				glBegin(GL_POINTS);
-				glColor3d(1,0.5,0);
-				VI hv {_mesh->getHV(highlightRow, highlightCol)};
-				VI vv {_mesh->getVV(highlightRow, highlightCol)};
-				auto overlap = [&](const VI& A, const VI& B) -> bool
-				{
-					auto check1 = [&](const VI& A, const VI& B) -> bool
-					{
-						for(int a: A) FOR(i,0,4)
-						{
-							if(B[i] <= a and a < B[i+1] and a != B[i] and a != B[i+1])
-								return false;
-						}
-						return true;
-					};
-					return check1(A,B) and check1(B,A);
-				};
-
-				FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
-				{
-					if(_mesh->useVertex(r,c) and
-						not overlap(hv,_mesh->getHV(r,c)) and
-						not overlap(vv,_mesh->getVV(r,c)))
-					{
-						gridVertex2d(r, c);
-					}
-				}
-				glEnd();
-			}
-
-
-			// Mark the unit element at which the cursor is pointing
-			if(highlightDir == 4)
-			{
-				vector<pair<int,int>> blendP, blendP2, missing, extra;
-				bool row_n_4, col_n_4;
-				//_mesh->get16Points(highlightRow, highlightCol, blendP, row_n_4, col_n_4);
-				_mesh->test1(highlightRow, highlightCol, blendP, blendP2, missing, extra, row_n_4, col_n_4);
-
-				// Mark found or missing blending points (for testing the algorithms in the paper)
-				glBegin(GL_POINTS);
-				glPointSize(8);
-				// all good blending points
-				glColor3d(0, 1, 0.3);
-				for(auto& p: blendP) gridVertex2d(p._1, p._2);
-				// missing points
-				glColor3d(1, 0.2, 0);
-				for(auto& p: missing) gridVertex2d(p._1, p._2);
-				// extra points
-				glColor3d(0.5, 1, 0);
-				for(auto& p: extra) gridVertex2d(p._1, p._2);
-				glEnd();
-
-
-				double r0, r1, c0, c1;
-				const double margin_small {0.1};
-				const double margin_large {0.4};
-
-				// Color green if the unit element is renderable, red otherwise
-				if(row_n_4 or col_n_4) glColor3d(0,0.4,0);
-				else glColor3d(0.5,0,0);
-
-				// Show which directions the unit element can be rendered first
-				if(row_n_4 == col_n_4)
-				{
-					r0 = highlightRow + margin_small;
-					c0 = highlightCol + margin_small;
-					r1 = highlightRow + 1 - margin_small;
-					c1 = highlightCol + 1 - margin_small;
-				}
-				else if(row_n_4)
-				{
-					r0 = highlightRow + margin_large;
-					c0 = highlightCol + margin_small;
-					r1 = highlightRow + 1 - margin_large;
-					c1 = highlightCol + 1 - margin_small;
-				}
-				else // if(col_n_4)
-				{
-					r0 = highlightRow + margin_small;
-					c0 = highlightCol + margin_large;
-					r1 = highlightRow + 1 - margin_small;
-					c1 = highlightCol + 1 - margin_large;
-				}
-
-				glBegin(GL_QUADS);
-				gridVertex2d(r0, c0);
-				gridVertex2d(r1, c0);
-				gridVertex2d(r1, c1);
-				gridVertex2d(r0, c1);
-				glEnd();
-
-/*
-				// Simplest: only if all 16 points are present
-				bool simplestOk {true};
-				FOR(dr,-1,3) FOR(dc,-1,3)
-				{
-					int r {highlightRow + dr};
-					int c {highlightCol + dc};
-					if(r >= 0 and r <= _mesh->rows and c >= 0 and c <= _mesh->cols)
-					{
-						int vertexType = _mesh->gridPoints[r][c].valenceType;
-						if(vertexType < 3) simplestOk = false;
-					}
-					else simplestOk = false;
-				}
-				if(simplestOk)
-				{
-					glPointSize(10);
-					glBegin(GL_POINTS);
-					glColor3d(1,0.5,0);
-					FOR(r,-1,3) FOR(c,-1,3)
-					{
-						gridVertex2d(highlightRow + r, highlightCol + c);
-					}
-					glEnd();
-				}
-				else
-				{
-					// Test: use tiled floors
-					glPointSize(10);
-					glBegin(GL_POINTS);
-					glColor3d(1,0.1,0);
-					FOR(r,0,_mesh->rows+1) FOR(c,0,_mesh->cols+1)
-					{
-						// ignore non-vertex
-						if(_mesh->gridPoints[r][c].valenceType < 3) continue;
-
-						int r_min, r_max, c_min, c_max;
-						getTiledFloorRange(r, c, r_min, r_max, c_min, c_max);
-
-						if(r_min <= highlightRow and highlightRow < r_max and
-								c_min <= highlightCol and highlightCol < c_max)
-						{
-							gridVertex2d(r, c);
-						}
-					}
-					glEnd();
-				}
-
-				glBegin(GL_QUADS);
-				glColor3d(0,0.4,0);
-				gridVertex2d(highlightRow + 0.1, highlightCol + 0.1);
-				gridVertex2d(highlightRow + 0.9, highlightCol + 0.1);
-				gridVertex2d(highlightRow + 0.9, highlightCol + 0.9);
-				gridVertex2d(highlightRow + 0.1, highlightCol + 0.9);
-				glEnd();
-//*/
-			}
 		}
 	}
 

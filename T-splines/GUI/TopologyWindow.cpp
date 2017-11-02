@@ -9,7 +9,7 @@ using namespace std;
 
 const int WIN_LOWER_SPACE = 30;
 
-TMesh TopologyWindow::_mesh(8, 12, 3, 3);
+TMesh TopologyWindow::_mesh(10, 10, 3, 3);
 
 TopologyWindow::TopologyWindow(int x, int y, int w, int h, const char* l)
 	: Fl_Window(x,y,w,h+WIN_LOWER_SPACE,l)
